@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 load_dotenv('.env')
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -84,38 +85,15 @@ WSGI_APPLICATION = 'DWLR.wsgi.application'
 
 
 # Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-# Check if DB_ENGINE is explicitly set in .env, otherwise fall back to sqlite3
-DB_ENGINE = os.getenv("DB_ENGINE", "sqlite3")
-
-if DB_ENGINE == "postgresql":
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("DB_NAME"),
-            "USER": os.getenv("DB_USER"),
-            "PASSWORD": os.getenv("DB_PASSWORD"),
-            "HOST": os.getenv("DB_HOST"),
-            "PORT": os.getenv("DB_PORT", "5432"),
-            "CONN_MAX_AGE": 600,
-            "OPTIONS": {
-                "sslmode": "require",
-            },
-        }
-    }
-else:
-    # Local fallback when AWS RDS is stopped/unavailable
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
-
+DATABASES = {
+    "default": dj_database_url.parse(
+        os.getenv(
+            "DATABASE_URL",
+            f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
+        ),
+        conn_max_age=600,
+    )
+}
 
 
 
