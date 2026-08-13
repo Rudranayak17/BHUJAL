@@ -35,6 +35,7 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
 ]
 CSRF_TRUSTED_ORIGINS = [
+    'https://bhujal-3x43.onrender.com',
     'https://sih-production-3bc9.up.railway.app',
 ]
 # Application definitiongn
