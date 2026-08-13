@@ -1,0 +1,12 @@
+{
+  "appId": "com.dwlr.app",
+  "appName": "DWLR Monitor",
+  "webDir": "www",
+  "server": {
+    "url": "http://10.0.2.2:8000",
+    "cleartext": true
+  },
+  "android": {
+    "backgroundColor": "#DC143C"
+  }
+}

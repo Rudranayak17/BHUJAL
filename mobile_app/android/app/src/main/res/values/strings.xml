@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DWLR Monitor</string>
+    <string name="title_activity_main">DWLR Monitor</string>
+    <string name="package_name">com.dwlr.app</string>
+    <string name="custom_url_scheme">com.dwlr.app</string>
+</resources>

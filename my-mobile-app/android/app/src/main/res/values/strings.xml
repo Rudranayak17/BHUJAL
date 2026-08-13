@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Groundwater Monitor</string>
+    <string name="title_activity_main">Groundwater Monitor</string>
+    <string name="package_name">com.sih.groundwater</string>
+    <string name="custom_url_scheme">com.sih.groundwater</string>
+</resources>

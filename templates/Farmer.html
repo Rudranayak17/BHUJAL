@@ -1,0 +1,326 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farmer Dashboard | Bhujal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        /* --- HYDRO-DARK THEME VARIABLES --- */
+        :root {
+            --bg-app: #0f1115;
+            --bg-panel: #181b21;
+            --bg-hover: #232730;
+            --border: #2d333b;
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.3);
+            --success: #10b981;
+            --warning: #f59e0b; 
+            --danger: #ef4444;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-app); color: var(--text-main); }
+
+        /* --- LAYOUT UTILS --- */
+        .navbar { height: 60px; background: var(--bg-panel); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+        .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+        .brand span { color: var(--primary); }
+        
+        .container {
+            max-width: 600px; /* Mobile focused width */
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 80px; 
+        }
+
+        /* --- COMPONENT: STATUS HERO (TRAFFIC LIGHT) --- */
+        .status-hero {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 30px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .status-hero.safe { border-color: var(--success); background: linear-gradient(180deg, rgba(16,185,129,0.1) 0%, var(--bg-panel) 100%); }
+        .status-hero.caution { border-color: var(--warning); background: linear-gradient(180deg, rgba(245,158,11,0.1) 0%, var(--bg-panel) 100%); }
+        .status-hero.critical { border-color: var(--danger); background: linear-gradient(180deg, rgba(239,68,68,0.1) 0%, var(--bg-panel) 100%); }
+
+        .status-icon-wrapper {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            margin: 0 auto 15px;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        
+        .status-hero.safe .status-icon-wrapper { background: rgba(16,185,129,0.2); color: var(--success); box-shadow: 0 0 30px rgba(16,185,129,0.2); }
+        .status-hero.caution .status-icon-wrapper { background: rgba(245,158,11,0.2); color: var(--warning); box-shadow: 0 0 30px rgba(245,158,11,0.2); }
+        .status-hero.critical .status-icon-wrapper { background: rgba(239,68,68,0.2); color: var(--danger); box-shadow: 0 0 30px rgba(239,68,68,0.2); }
+
+        .big-reading { font-size: 2.5rem; font-weight: 600; margin-bottom: 5px; }
+        .status-label { text-transform: uppercase; letter-spacing: 1px; font-size: 0.9rem; font-weight: 600; margin-bottom: 10px; }
+        
+        /* --- COMPONENT: PANELS --- */
+        .panel { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 20px; overflow: hidden; }
+        .panel-header { padding: 15px 20px; border-bottom: 1px solid var(--border); font-weight: 600; display: flex; align-items: center; gap: 8px; font-size: 0.95rem; }
+        .panel-body { padding: 20px; }
+
+        /* --- COMPONENT: COMPARISON BARS --- */
+        .bar-chart-row { margin-bottom: 15px; }
+        .bar-label { display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
+        .bar-track { background: var(--bg-app); height: 12px; border-radius: 6px; overflow: hidden; position: relative; }
+        .bar-fill { height: 100%; border-radius: 6px; transition: width 1s ease; }
+        
+        /* Added min-width so bars don't disappear completely on critical levels */
+        .fill-prev { background-color: var(--text-muted); opacity: 0.5; min-width: 5px; }
+        .fill-curr { background-color: var(--primary); min-width: 5px; }
+
+        /* --- COMPONENT: FORECAST GRID (New Feature) --- */
+        .forecast-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .forecast-card {
+            background-color: var(--bg-app);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px 5px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* Highlight Today */
+        .forecast-card.active { border-color: var(--primary); background-color: rgba(59, 130, 246, 0.05); }
+
+        .day-label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+        .weather-icon { font-size: 1.8rem; color: var(--text-main); }
+        
+        .advice-badge {
+            font-size: 0.7rem;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-weight: 600;
+            width: 100%;
+        }
+
+        .advice-badge.run { background-color: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .advice-badge.wait { background-color: rgba(245, 158, 11, 0.2); color: var(--warning); }
+        .advice-badge.stop { background-color: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+        /* --- UTILS --- */
+        .text-accent { color: var(--primary); }
+        .logout-link { color: var(--danger); text-decoration: none; font-size: 0.9rem; font-weight: 500; }
+        
+        /* Animation for loading */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: fadeIn 0.5s ease-out forwards; }
+
+        /* --- STATION SELECTOR CHIPS --- */
+        .station-scroller {
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            padding-bottom: 15px; /* Space for scrollbar */
+            margin-bottom: 20px;
+            /* Hide scrollbar for cleaner UI */
+            scrollbar-width: none; 
+        }
+        .station-scroller::-webkit-scrollbar { display: none; }
+
+        .station-chip {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .station-chip:hover {
+            border-color: var(--primary);
+            color: var(--text-main);
+        }
+
+        .station-chip.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="brand">
+            <span class="material-symbols-outlined">water_drop</span>
+            <div>BHUJAL <span style="font-weight:400; opacity:0.6;">Farmer</span></div>
+        </div>
+        <a href="{% url 'Logout' %}" class="logout-link">Logout</a>
+    </nav>
+
+    <div class="container">
+        
+        <div style="margin-bottom: 20px; display:flex; justify-content:space-between; align-items:end; flex-wrap:wrap; gap:10px;">
+            <div>
+                <h2 style="font-weight: 500;">Hello, {{ user.first_name|default:"Farmer" }}</h2>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">
+                    <span class="material-symbols-outlined" style="font-size:1em; vertical-align:text-bottom;">location_on</span>
+                    {{ user_district_name }}
+                </p>
+            </div>
+            
+            <form method="get" id="farmerLocForm" style="display:flex; gap:8px;">
+                <select name="state" id="fState" onchange="this.form.submit()" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem;">
+                    <option value="Chhattisgarh" {% if state == "Chhattisgarh" %}selected{% endif %}>Chhattisgarh</option>
+                    <option value="Madhya Pradesh" {% if state == "Madhya Pradesh" %}selected{% endif %}>Madhya Pradesh</option>
+                    <option value="Maharashtra" {% if state == "Maharashtra" %}selected{% endif %}>Maharashtra</option>
+                    <option value="Rajasthan" {% if state == "Rajasthan" %}selected{% endif %}>Rajasthan</option>
+                    <option value="Karnataka" {% if state == "Karnataka" %}selected{% endif %}>Karnataka</option>
+                    <option value="Tamil Nadu" {% if state == "Tamil Nadu" %}selected{% endif %}>Tamil Nadu</option>
+                    <option value="Uttar Pradesh" {% if state == "Uttar Pradesh" %}selected{% endif %}>Uttar Pradesh</option>
+                </select>
+                <input type="text" name="district" value="{{ district }}" placeholder="District" onchange="this.form.submit()" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem; width:120px;">
+            </form>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; margin-left: 5px;">
+                Select Monitoring Station:
+            </p>
+            <div class="station-scroller">
+                {% if stations %}
+                    {% for station in stations %}
+                        <a href="?state={{ state }}&district={{ district }}&station_id={{ station.id }}" 
+                        class="station-chip {% if active_station and station.id == active_station.id %}active{% endif %}">
+                        
+                        {{ station.station_name }}
+                        </a>
+                    {% endfor %}
+                {% else %}
+                    <div class="station-chip">No stations found in {{ user_district_name }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="status-hero {{ status_class }} animate-in" style="animation-delay: 0.1s;">
+            <div class="status-icon-wrapper">
+                <span class="material-symbols-outlined" style="font-size: 40px;">water_ec</span>
+            </div>
+            
+            <div class="status-label">{{ status_text }}</div>
+            
+            <div class="big-reading">
+                {% if current_level %}
+                    {{ current_level|floatformat:1 }} m
+                {% else %}
+                    --.-
+                {% endif %}
+            </div>
+            
+            <p style="font-size: 0.85rem; opacity: 0.8;">Current Groundwater Depth</p>
+            
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.9rem;">
+                {{ advice_text }}
+            </div>
+        </div>
+
+        <div class="panel animate-in" style="animation-delay: 0.2s;">
+            <div class="panel-header">
+                <span class="material-symbols-outlined">history</span>
+                Seasonal Comparison
+            </div>
+            <div class="panel-body">
+                        {% if current_level %}
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">
+                                Comparing water levels today vs. last year.
+                            </p>
+
+                            <div class="bar-chart-row">
+            <div class="bar-label">
+                <span>Last Year</span>
+                <span>{{ last_year_level|default:0|floatformat:1 }} m</span>
+            </div>
+            <div class="bar-track">
+                <div class="bar-fill fill-prev" style="width: {{ last_year_pct|default:0|floatformat:0 }}%; min-width: 4px;"></div>
+            </div>
+        </div>
+
+        <div class="bar-chart-row">
+            <div class="bar-label">
+                <span class="text-accent">Today</span>
+                <span class="text-accent">{{ current_level|default:0|floatformat:1 }} m</span>
+            </div>
+            <div class="bar-track">
+                <div class="bar-fill fill-curr" style="width: {{ current_pct|default:0|floatformat:0 }}%; min-width: 4px;"></div>
+            </div>
+        </div>
+
+                    <div style="margin-top: 15px; font-size: 0.85rem; color: {{ trend_color }}; display: flex; align-items: center; gap: 6px;">
+                        <span class="material-symbols-outlined" style="font-size: 1.1rem;">{{ trend_icon }}</span>
+                        <div>
+                            Water level has {{ trend_dir }} 
+                            {% if diff > 0.1 %} 
+                                <strong>{{ diff }}m</strong> 
+                            {% endif %} 
+                            since last year.
+                        </div>
+                    </div>
+                {% else %}
+                    <p style="color: var(--text-muted); text-align: center; padding: 20px;">
+                        Data unavailable for this station.
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="panel animate-in" style="animation-delay: 0.3s;">
+            <div class="panel-header">
+                <span class="material-symbols-outlined">calendar_clock</span>
+                Irrigation Planner
+            </div>
+            <div class="panel-body">
+                <div class="forecast-grid">
+                    <div class="forecast-card active">
+                        <div class="day-label">Today</div>
+                        <span class="material-symbols-outlined weather-icon" style="color:#fcd34d;">wb_sunny</span>
+                        <div class="advice-badge run">Pump OK</div>
+                    </div>
+                    <div class="forecast-card">
+                        <div class="day-label">Tomorrow</div>
+                        <span class="material-symbols-outlined weather-icon" style="color:#94a3b8;">cloud</span>
+                        <div class="advice-badge wait">Hold</div>
+                    </div>
+                    <div class="forecast-card">
+                        <div class="day-label">Friday</div>
+                        <span class="material-symbols-outlined weather-icon" style="color:#60a5fa;">thunderstorm</span>
+                        <div class="advice-badge stop">Stop</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>

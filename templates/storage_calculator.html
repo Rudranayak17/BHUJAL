@@ -1,0 +1,369 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Storage Estimation | BHUJAL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    
+    <style>
+        /* --- EXISTING STYLES --- */
+        .positive { color: #16a34a; font-weight: 600; }
+        .negative { color: #dc2626; font-weight: 600; }
+        
+        .summary-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px; /* Increased rounding */
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none; 
+            text-align: center;
+            animation: fadeIn 0.5s ease-in;
+        }
+        
+        .summary-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 10px 0;
+            color: #1e293b;
+        }
+
+        .summary-sub {
+            color: #64748b;
+            font-size: 0.9rem;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- NEW ROUNDED STYLES FOR INPUTS & BUTTONS --- */
+        
+        /* 1. Rounding Inputs and Selects */
+        select, input[type="date"], input[type="text"] {
+            border-radius: 50px !important; /* Fully rounded pill shape */
+            border: 1px solid #cbd5e1;
+            padding: 10px 20px !important; /* More padding for the pill shape */
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+            background-color: #f8fafc;
+        }
+
+        /* 2. Focus Effect */
+        select:focus, input:focus {
+            outline: none;
+            border-color: #2563eb;
+            background-color: #fff;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+        }
+
+        /* 3. Rounding Buttons */
+        button, .btn-secondary {
+            border-radius: 50px !important; /* Fully rounded pill shape */
+            padding: 10px 24px !important;
+            transition: transform 0.1s;
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <div class="brand">
+            <span class="material-symbols-outlined icon">water_drop</span>
+            <div>BHUJAL<span style="font-weight:400; opacity:0.6; font-size:0.9em;"></span></div>
+        </div>
+        
+        <div class="user-menu">
+            <span class="material-symbols-outlined notification-badge">notifications</span>
+            <a href="{% url 'Logout' %}" class="btn-logout" id="logoutBtn">Logout</a>
+            <div class="profile">
+                <div class="user-info">
+                    <div class="user-name">{{user.username}}</div>
+                    <div class="user-role">{{user.profile.role}}</div>
+                </div>
+                <div class="avatar">AU</div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="app-body">
+        <aside class="sidebar">
+            <a href="{% url 'Dashboard' %}" class="nav-item">
+                <span class="material-symbols-outlined">dashboard</span>
+            </a>
+
+            <a href="{% url 'Estimate' %}" class="nav-item active">
+                <span class="material-symbols-outlined">analytics</span>
+            </a>
+
+            <a href="{% url 'Report' %}" class="nav-item">
+                <span class="material-symbols-outlined">description</span>
+            </a>
+
+            <div style="flex:1"></div> 
+            
+            <div class="nav-item"><span class="material-symbols-outlined">settings</span></div>
+        </aside>
+
+        <main class="main-view fade-in">
+            <header class="page-header">
+                <div>
+                    <h2>Storage Estimation</h2>
+                    <p>Calculate groundwater volume fluctuation based on specific timeframes.</p>
+                </div>
+                <button class="btn-secondary" onclick="window.print()">
+                    <span class="material-symbols-outlined" style="font-size:1.1rem; margin-right:8px;">print</span>
+                    Print View
+                </button>
+            </header>
+
+            <div class="reports-grid">
+                
+                <div style="display:flex; flex-direction:column; gap:20px; overflow:hidden;">
+                    
+                    <div class="panel">
+                        <div class="panel-header">
+                            <span class="material-symbols-outlined">tune</span> Calculation Parameters
+                        </div>
+                        <div class="panel-body">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label style="margin-left: 10px;">State</label>
+                                    <select id="state">
+                                        <option value="">Select State</option>
+                                        {% for state in states %}
+                                            <option value="{{ state }}">{{ state }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label style="margin-left: 10px;">District</label>
+                                    <select id="district" disabled>
+                                        <option>Select State First</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label style="margin-left: 10px;">Start Date</label>
+                                    <input type="date" id="start_date">
+                                </div>
+                                <div class="form-group">
+                                    <label style="margin-left: 10px;">End Date</label>
+                                    <input type="date" id="end_date">
+                                </div>
+                            </div>
+                            <div style="margin-top:20px; text-align:right;">
+                                <button type="button" onclick="calculate()" style="background-color: var(--primary, #2563eb); color: white; border: none; font-weight: 500; cursor: pointer;">
+                                    <span class="material-symbols-outlined" style="vertical-align:middle; font-size:1.1rem; margin-right:5px;">calculate</span>
+                                    Calculate Change
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel" style="flex:1;">
+                        <div class="panel-header">
+                            <span class="material-symbols-outlined">table_chart</span> Estimation Results
+                        </div>
+                        <div class="panel-body">
+                            
+                            <div id="summary" class="summary-card">
+                                <h3>Total Storage Change (District)</h3>
+                                <div class="summary-value" id="total-val">0 MCM</div>
+                                <div class="summary-sub">
+                                    Analysis based on <span id="station-count" style="font-weight:bold; color:#000;">0</span> monitoring stations
+                                </div>
+                            </div>
+
+                            <div style="overflow-x:auto;">
+                                <table class="data-table" id="result-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Station</th>
+                                            <th>Area (m²)</th>
+                                            <th>Yield (%)</th>
+                                            <th>Start Depth</th>
+                                            <th>End Depth</th>
+                                            <th>Fluctuation (m)</th>
+                                            <th>Vol Change (MCM)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colspan="7" style="text-align:center; padding: 20px; color:#888;">
+                                                Select parameters and click Calculate to view data.
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="material-symbols-outlined">info</span> Methodology
+                    </div>
+                    <div class="panel-body">
+                        <p style="font-size:0.9rem; color:#555; line-height:1.6;">
+                            This tool uses the Water Table Fluctuation (WTF) method to estimate storage change.
+                        </p>
+                        <br>
+                        <ul class="log-list">
+                            <li class="log-item">
+                                <div class="log-icon-wrapper">
+                                    <span class="material-symbols-outlined log-icon" style="color:var(--primary);">straighten</span>
+                                </div>
+                                <div class="log-content">
+                                    <h4>Step 1: Fluctuation</h4>
+                                    <p>Difference between Pre-monsoon and Post-monsoon water levels.</p>
+                                </div>
+                            </li>
+                            <li class="log-item">
+                                <div class="log-icon-wrapper">
+                                    <span class="material-symbols-outlined log-icon" style="color:var(--primary);">grid_on</span>
+                                </div>
+                                <div class="log-content">
+                                    <h4>Step 2: Area & Yield</h4>
+                                    <p>Applicable influence area multiplied by Specific Yield.</p>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div> 
+        </main>
+    </div>
+
+    <nav class="mobile-nav">
+        <a href="{% url 'Dashboard' %}" class="mobile-nav-item">
+            <span class="material-symbols-outlined">dashboard</span>
+            <span>Home</span>
+        </a>
+        <a href="{% url 'Estimate' %}" class="mobile-nav-item active">
+            <span class="material-symbols-outlined">analytics</span>
+            <span>Calc</span>
+        </a>
+        <a href="{% url 'Report' %}" class="mobile-nav-item">
+            <span class="material-symbols-outlined">description</span>
+            <span>Reports</span>
+        </a>
+        <a href="{% url 'Logout' %}" class="mobile-nav-item">
+            <span class="material-symbols-outlined">logout</span>
+            <span>Exit</span>
+        </a>
+    </nav>
+
+    <script>
+        // 1. Load Districts (Ajax)
+        document.getElementById('state').addEventListener('change', function() {
+            const state = this.value;
+            const distSelect = document.getElementById('district');
+            distSelect.innerHTML = '<option>Loading...</option>';
+            distSelect.disabled = true;
+            
+            if(state) {
+                fetch(`{% url 'ajax_load_districts' %}?state=${encodeURIComponent(state)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        distSelect.innerHTML = '<option value="">Select District</option>';
+                        data.forEach(d => distSelect.innerHTML += `<option value="${d}">${d}</option>`);
+                        distSelect.disabled = false;
+                    })
+                    .catch(err => {
+                        console.error('Error:', err);
+                        distSelect.innerHTML = '<option>Error loading districts</option>';
+                    });
+            }
+        });
+
+        // 2. Calculate Function
+        function calculate() {
+            const state = document.getElementById('state').value;
+            const district = document.getElementById('district').value;
+            const start = document.getElementById('start_date').value;
+            const end = document.getElementById('end_date').value;
+            const tbody = document.querySelector('#result-table tbody');
+            const summaryDiv = document.getElementById('summary');
+
+            // Simple validation
+            if(!state || !district || !start || !end) {
+                alert("Please complete all fields (State, District, Start Date, End Date).");
+                return;
+            }
+
+            // Loading State
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align:center; padding:30px;">
+                        <span class="material-symbols-outlined" style="animation:spin 1s infinite linear;">refresh</span>
+                        <br>Calculating...
+                    </td>
+                </tr>`;
+            
+            summaryDiv.style.display = 'none';
+
+            // API Call
+            fetch(`{% url 'api_calculate_storage' %}?state=${state}&district=${district}&start_date=${start}&end_date=${end}`)
+                .then(res => res.json())
+                .then(data => {
+                    tbody.innerHTML = ''; // Clear table
+
+                    if(data.error) {
+                        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:red;">Error: ${data.error}</td></tr>`;
+                        return;
+                    }
+
+                    // Update Summary Card
+                    summaryDiv.style.display = 'block';
+                    const total = data.total_change_mcm;
+                    const sign = total > 0 ? "+" : "";
+                    
+                    const totalEl = document.getElementById('total-val');
+                    totalEl.innerText = `${sign}${total} MCM`;
+                    totalEl.style.color = total >= 0 ? '#16a34a' : '#dc2626'; // Green if pos, Red if neg
+                    
+                    document.getElementById('station-count').innerText = data.station_count;
+
+                    // Populate Table
+                    if(data.data.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px;">No data found for this period.</td></tr>';
+                    } else {
+                        data.data.forEach(row => {
+                            const colorClass = row.change_mcm >= 0 ? 'positive' : 'negative';
+                            const html = `
+                                <tr>
+                                    <td><b>${row.station}</b></td>
+                                    <td>${row.area.toLocaleString()}</td>
+                                    <td>${row.yield_percent}%</td>
+                                    <td>${row.start_depth}</td>
+                                    <td>${row.end_depth}</td>
+                                    <td class="${colorClass}">${row.fluctuation > 0 ? '+' : ''}${row.fluctuation}</td>
+                                    <td class="${colorClass}">${row.change_mcm > 0 ? '+' : ''}${row.change_mcm}</td>
+                                </tr>
+                            `;
+                            tbody.innerHTML += html;
+                        });
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">System Error. Please try again.</td></tr>';
+                });
+        }
+    </script>
+
+</body>
+</html>

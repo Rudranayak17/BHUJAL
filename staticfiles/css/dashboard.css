@@ -1,0 +1,504 @@
+
+        :root {
+            /* Theme Colors: Dark Technical */
+            --bg-app: #0f1115;       /* Very dark background */
+            --bg-panel: #181b21;     /* Card background */
+            --bg-hover: #232730;
+            --border: #2d333b;
+            --primary: #3b82f6;      /* Tech Blue */
+            --primary-glow: rgba(59, 130, 246, 0.3);
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --success: #10b981;      /* Green status */
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- 1. TOP NAVIGATION BAR --- */
+        .navbar {
+            height: 60px;
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 100;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--text-main);
+        }
+        
+        .brand span.icon { color: var(--primary); font-size: 1.5rem; }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .notification-badge {
+            position: relative;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+        .notification-badge::after {
+            content: '';
+            position: absolute;
+            top: 2px; right: 2px;
+            width: 8px; height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            border: 2px solid var(--bg-panel);
+        }
+
+        .profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            padding: 5px 10px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .profile:hover { background-color: var(--bg-hover); }
+
+        .avatar {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, var(--primary), #2563eb);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.8rem; font-weight: bold; color: white;
+        }
+
+        .user-info { display: flex; flex-direction: column; }
+        .user-name { font-size: 0.9rem; font-weight: 500; }
+        .user-role { font-size: 0.75rem; color: var(--text-muted); }
+
+        /* --- 2. MAIN LAYOUT (Sidebar + Content) --- */
+        .app-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Slim Sidebar */
+        .sidebar {
+            width: 60px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 20px;
+            gap: 20px;
+        }
+
+        .nav-item {
+            color: var(--text-muted);
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-item:hover, .nav-item.active {
+            background-color: var(--bg-hover);
+            color: var(--primary);
+        }
+
+        /* Content Area */
+        .main-view {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .page-header h2 { font-weight: 500; font-size: 1.5rem; }
+        .page-header p { color: var(--text-muted); font-size: 0.9rem; }
+
+        /* --- 3. DASHBOARD GRID --- */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr; /* Controls | Chart */
+            gap: 20px;
+            height: 100%;
+        }
+
+        /* Panels (Cards) */
+        .panel {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+
+        .panel-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background-color: rgba(255,255,255,0.02);
+        }
+
+        .panel-body {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        /* --- 4. FORM STYLING --- */
+        /* Make Django form compact */
+        form p { margin-bottom: 12px; }
+        
+        form label {
+            display: block;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        form input, form select {
+            width: 100%;
+            background-color: var(--bg-app);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            transition: border 0.2s;
+        }
+        
+        form input:focus, form select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        button[type="submit"] {
+            width: 100%;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button[type="submit"]:hover { background-color: #2563eb; }
+
+        /* --- 5. STATION TOGGLES (Horizontal Chips) --- */
+        .controls-toolbar {
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border);
+            background-color: var(--bg-app);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            overflow-x: auto;
+        }
+
+        .station-chip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            padding: 4px 12px;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            user-select: none;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+        
+        .station-chip:hover { border-color: var(--text-muted); }
+        
+        .station-chip.active {
+            background-color: rgba(59, 130, 246, 0.15);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .station-chip .dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background-color: var(--text-muted);
+        }
+        .station-chip.active .dot { background-color: var(--primary); box-shadow: 0 0 6px var(--primary); }
+
+        /* Hide actual checkboxes */
+        .station-chip input { display: none; }
+
+        /* --- RESPONSIVE --- */
+        @media (max-width: 900px) {
+            .dashboard-grid { grid-template-columns: 1fr; grid-template-rows: auto 400px; }
+            .sidebar { display: none; } /* Hide sidebar on mobile */
+        }
+
+        /* We use a specific class to avoid affecting other links */
+a.btn-logout {
+  /* 1. FORCE RESET: Overrides global link styles */
+  display: inline-block !important;
+  text-decoration: none !important;
+  border-bottom: none !important;
+  cursor: pointer;
+
+  /* 2. COLORS & VISUALS */
+  background-color: #DC143C;
+  color: #ffffff !important; /* Forces white text even if visited */
+  border: 2px solid #DC143C;
+  
+  /* 3. SHAPE & SIZE */
+  padding: 12px 16px;
+  font-size: 16px;
+  font-family: sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-radius: 50px;
+  
+  /* 4. ANIMATION & GLOW */
+  box-shadow: 0 0 10px rgba(220, 20, 60, 0.5);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* HOVER STATE */
+a.btn-logout:hover {
+  background-color: #ff1f4b;
+  border-color: #ff1f4b;
+  color: #ffffff !important;
+  box-shadow: 
+    0 0 15px rgba(220, 20, 60, 0.8),
+    0 0 30px rgba(220, 20, 60, 0.6),
+    0 0 60px rgba(220, 20, 60, 0.4);
+  transform: translateY(-2px);
+}
+
+/* ENSURE VISITED LINKS DON'T CHANGE COLOR */
+a.btn-logout:visited, 
+a.btn-logout:active, 
+a.btn-logout:focus {
+  color: #ffffff !important;
+  text-decoration: none !important;
+}
+
+.btn-group
+     {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+    }
+
+    .btn-secondary {
+        background-color: var(--bg-panel); /* Dark background */
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        padding: 10px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .btn-secondary:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+    }
+
+    .bookmarks-container {
+        margin-top: 20px;
+        border-top: 1px solid var(--border);
+        padding-top: 15px;
+    }
+    
+    .bookmarks-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+        margin-bottom: 10px;
+        display: block;
+    }
+
+    .bookmark-card {
+        background-color: rgba(255,255,255,0.03);
+        border: 1px solid transparent;
+        border-radius: 8px;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .bookmark-card:hover {
+        background-color: rgba(59, 130, 246, 0.1);
+        border-color: rgba(59, 130, 246, 0.3);
+    }
+
+    .bookmark-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--text-main);
+        font-size: 0.9rem;
+    }
+
+    .bookmark-icon {
+        font-size: 1.2rem;
+        color: var(--primary);
+    }
+
+    .delete-btn {
+        color: #ef4444; /* Red color */
+        padding: 4px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.6;
+        transition: all 0.2s;
+    }
+    .delete-btn:hover {
+        opacity: 1;
+        background-color: rgba(239, 68, 68, 0.1);
+    }
+.fade-in {
+    animation: fadeInPage 0.4s ease-out forwards;
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+@keyframes fadeInPage {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- REPORTS PAGE SPECIFIC STYLES --- */
+
+/* 1. Data Tables (for Download History) */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+.data-table th {
+    text-align: left;
+    padding: 12px 15px;
+    color: var(--text-muted);
+    font-weight: 500;
+    border-bottom: 1px solid var(--border);
+}
+.data-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-main);
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover { background-color: rgba(255,255,255,0.02); }
+
+/* 2. Status Badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.badge.success { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.2); }
+.badge.pending { background: rgba(59, 130, 246, 0.15); color: var(--primary); border: 1px solid rgba(59, 130, 246, 0.2); }
+.badge.error { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); }
+
+/* 3. Audit Log List (Right Panel) */
+.log-list { list-style: none; }
+.log-item {
+    display: flex;
+    gap: 15px;
+    padding: 15px 0;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+}
+.log-item::before {
+    content: '';
+    position: absolute;
+    left: 9px; /* Center with icon */
+    top: 35px;
+    bottom: -15px;
+    width: 1px;
+    background: var(--border);
+    z-index: 0;
+}
+.log-item:last-child::before { display: none; }
+
+.log-icon-wrapper {
+    z-index: 1;
+    background: var(--bg-panel);
+    display: flex; flex-direction: column; align-items: center;
+}
+.log-icon { font-size: 1.2rem; color: var(--text-muted); }
+
+.log-content h4 { font-size: 0.9rem; font-weight: 500; margin-bottom: 4px; }
+.log-content p { font-size: 0.8rem; color: var(--text-muted); line-height: 1.4; }
+.log-time { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+
+/* Grid Layout for Reports Page */
+.reports-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr; /* Left is wider */
+    gap: 20px;
+    height: 100%;
+    min-height: 0; /* Prevents overflow issues */
+}
+/* Update this in your existing CSS */
+
+.navbar {
+    /* ... keep your existing styles ... */
+    
+    /* ADD THIS LINE: Tells browser this element is persistent */
+    view-transition-name: main-navbar; 
+}
+
+.sidebar {
+    /* ... keep your existing styles ... */
+    
+    /* ADD THIS LINE */
+    view-transition-name: main-sidebar;
+}

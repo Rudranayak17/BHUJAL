@@ -1,0 +1,16 @@
+{
+  "appId": "com.sih.groundwater",
+  "appName": "Groundwater Monitor",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://sih-production-3bc9.up.railway.app/",
+    "allowNavigation": [
+      "my-django-sih-app.up.railway.app"
+    ],
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register | Bhujal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
+
+    <style>
+        /* --- HYDRO-OPS DARK THEME SYSTEM (STRICT PALETTE) --- */
+        :root {
+            /* Requested Palette */
+            --bg-app: #0f1115;       /* Deep Void */
+            --bg-panel: #181b21;     /* Dark Slate (Base) */
+            --bg-panel-glass: rgba(24, 27, 33, 0.85); /* Dark Slate with opacity for glass effect */
+            --border: #2d333b;       /* Border Color */
+            --primary: #3b82f6;      /* Tech Blue */
+            --primary-bright: #60a5fa; /* Lighter Blue for highlights */
+            --success: #10b981;      /* Emerald Green */
+            --text-main: #e2e8f0;    /* Main Text */
+            --text-muted: #94a3b8;   /* Muted Text */
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- HORIZON / FLUID MOTION ANIMATION --- */
+        
+        .horizon-scene {
+            position: fixed;
+            top: -15%; left: -15%; 
+            width: 130%; height: 130%;
+            z-index: -1;
+            display: flex;
+            flex-direction: column;
+            /* Camera tilts and bobs */
+            animation: camera-sway 10s ease-in-out infinite alternate;
+            transform-origin: 50% 60%;
+            background: #000;
+        }
+
+        /* SKY - Adapted to Deep Void */
+        .sky {
+            flex: 0.8;
+            /* Gradient from Deep Void to slightly lighter Slate */
+            background: linear-gradient(to bottom, var(--bg-app) 0%, #1e293b 100%);
+            position: relative;
+        }
+
+        .stars {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: 
+                radial-gradient(1.5px 1.5px at 20px 30px, #fff, transparent),
+                radial-gradient(1px 1px at 40px 70px, #fff, transparent),
+                radial-gradient(1px 1px at 50px 160px, #fff, transparent),
+                radial-gradient(2px 2px at 90px 40px, #fff, transparent);
+            background-size: 200px 200px;
+            opacity: 0.3;
+        }
+
+        /* OCEAN - Adapted to Tech Blue + Deep Void */
+        .ocean {
+            flex: 1.2;
+            /* Gradient from Tech Blue (Darkened) to Deep Void */
+            background: linear-gradient(to bottom, #1e3a8a 0%, var(--bg-app) 100%);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 -20px 60px rgba(0,0,0,0.8);
+        }
+
+        /* Horizon Glow */
+        .ocean::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 2px;
+            background: rgba(59, 130, 246, 0.5); /* Tech Blue Glow */
+            box-shadow: 0 0 30px rgba(59, 130, 246, 0.6);
+            z-index: 10;
+        }
+
+        /* WAVES - Now with Liquid Morphing */
+        .wave {
+            position: absolute;
+            left: -60%;
+            width: 220%;
+            height: 220%;
+            background: rgba(59, 130, 246, 0.1); /* Tech Blue Tint */
+            /* Initial irregular shape */
+            border-radius: 40% 45% 35% 50%; 
+            animation: wave-motion 12s linear infinite;
+        }
+
+        .wave:nth-child(1) {
+            top: -160%;
+            background: rgba(30, 58, 138, 0.5); /* Darker Blue */
+            animation-duration: 9s;
+            animation-delay: -2s;
+        }
+        
+        .wave:nth-child(2) {
+            top: -165%;
+            background: rgba(59, 130, 246, 0.15); /* Tech Blue */
+            animation-duration: 14s;
+            animation-direction: reverse;
+        }
+        
+        .wave:nth-child(3) {
+            top: -170%;
+            background: rgba(16, 185, 129, 0.05); /* Hint of Emerald Green */
+            animation-duration: 7s;
+        }
+
+        /* --- ANIMATIONS --- */
+
+        /* Rotates AND Morphs shape for liquid feel */
+        @keyframes wave-motion {
+            0% { 
+                transform: rotate(0deg); 
+                border-radius: 40% 45% 35% 50%;
+            }
+            50% {
+                border-radius: 45% 35% 50% 40%;
+            }
+            100% { 
+                transform: rotate(360deg); 
+                border-radius: 40% 45% 35% 50%;
+            }
+        }
+
+        @keyframes camera-sway {
+            0% { transform: rotate(2deg) translateY(-10px); }
+            100% { transform: rotate(-2deg) translateY(10px); }
+        }
+
+        /* Makes the card float independently */
+        @keyframes float-on-water {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0px); }
+        }
+
+        /* --- AUTH CARD --- */
+        .auth-card {
+            background-color: var(--bg-panel-glass);
+            border: 1px solid var(--border);
+            width: 100%;
+            max-width: 450px;
+            padding: 40px;
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 30px 60px rgba(0,0,0,0.7);
+            position: relative; 
+            z-index: 20;
+            /* Added Floating Animation */
+            animation: fade-in 1s ease-out, float-on-water 6s ease-in-out infinite;
+        }
+
+        @keyframes fade-in { from { opacity: 0; margin-top: 20px; } to { opacity: 1; margin-top: 0; } }
+
+        /* --- BRANDING --- */
+        .brand-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .brand-title {
+            font-family: 'Inter', sans-serif;
+            font-weight: 700;
+            font-size: 1.6rem;
+            color: var(--text-main);
+            letter-spacing: -0.5px;
+            text-shadow: 0 4px 12px rgba(0,0,0,0.8);
+        }
+        .brand-subtitle {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--primary);
+            font-size: 0.8rem;
+            margin-top: 6px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 600;
+        }
+
+        /* --- FORMS --- */
+        .form-group { margin-bottom: 20px; }
+        .form-label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; }
+        .input-wrapper { position: relative; display: flex; align-items: center; }
+        .input-icon { position: absolute; left: 16px; color: var(--text-muted); font-size: 1.2rem; pointer-events: none; }
+
+        /* General Input/Select Styles */
+        input:not([type="radio"]), select {
+            width: 100%;
+            background-color: var(--bg-app); /* Deep Void Background for Inputs */
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 14px 14px 14px 46px;
+            border-radius: 10px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+            appearance: none;
+            cursor: pointer; /* Added for select */
+        }
+        
+        /* Specific Select Padding (no icon needed) */
+        select {
+             padding-left: 14px; /* Reset padding for select since it doesn't use the icon */
+             font-family: 'Inter', sans-serif;
+        }
+
+        input:not([type="radio"]):focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            background-color: #0f131a;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+        }
+
+        /* --- NEW ROLE SELECTOR STYLES --- */
+        .role-selector {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .role-option {
+            flex: 1;
+            position: relative;
+        }
+
+        /* Hide the actual radio button */
+        .role-option input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+            height: 0;
+            width: 0;
+        }
+
+        /* The Visual Card Button */
+        .role-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 12px 5px;
+            background-color: var(--bg-app);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-muted);
+            transition: all 0.25s ease;
+            cursor: pointer;
+            height: 100%;
+        }
+
+        .role-card .material-symbols-outlined {
+            font-size: 1.5rem;
+            transition: color 0.2s;
+        }
+
+        .role-name {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Hover State */
+        .role-option:hover .role-card {
+            border-color: var(--text-muted);
+            background-color: #1a1e26;
+        }
+
+        /* Checked State */
+        .role-option input[type="radio"]:checked + .role-card {
+            border-color: var(--primary);
+            background-color: rgba(59, 130, 246, 0.1);
+            color: var(--primary-bright);
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.15);
+        }
+        
+        /* Checked Icon Animation */
+        .role-option input[type="radio"]:checked + .role-card .material-symbols-outlined {
+            color: var(--primary);
+        }
+
+        /* --- BUTTONS --- */
+        .btn-submit {
+            width: 100%;
+            background: linear-gradient(135deg, var(--primary), #2563eb);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 10px;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .btn-submit:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4); 
+            filter: brightness(1.1);
+        }
+
+        /* --- FOOTER --- */
+        .auth-footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            border-top: 1px solid var(--border);
+            padding-top: 20px;
+        }
+        .auth-link { color: var(--primary); text-decoration: none; font-weight: 600; margin-left: 5px; }
+        .auth-link:hover { text-decoration: underline; color: var(--primary-bright); }
+
+    </style>
+</head>
+<body>
+
+    <div class="horizon-scene">
+        <div class="sky">
+            <div class="stars"></div>
+        </div>
+        <div class="ocean">
+            <div class="wave"></div>
+            <div class="wave"></div>
+            <div class="wave"></div>
+        </div>
+    </div>
+
+    <div class="auth-card">
+        <div class="brand-header">
+            <div class="brand-title">Create Account</div>
+            <div class="brand-subtitle">BHUJAL Terminal</div>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <div class="input-wrapper">
+                    <span class="material-symbols-outlined input-icon">badge</span>
+                    <input type="text" name="username" placeholder="John Doe" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <div class="input-wrapper">
+                    <span class="material-symbols-outlined input-icon">mail</span>
+                    <input type="email" name="email" placeholder="operator@hydro-ops.net" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="state-select" class="form-label">State</label>
+                <select id="state-select" name="state" required>
+                    <option value="">-- Select State --</option>
+                    </select>
+            </div>
+
+            <div class="form-group">
+                <label for="district-select" class="form-label">District</label>
+                <select id="district-select" name="district" disabled required>
+                    <option value="">-- Select District --</option>
+                </select>
+            </div>
+
+
+            <div class="form-group">
+                <label class="form-label">Role Assignment</label>
+                <div class="role-selector">
+                    <label class="role-option">
+                        <input type="radio" name="role" value="FARMER" checked>
+                        <div class="role-card">
+                            <span class="material-symbols-outlined">agriculture</span>
+                            <span class="role-name">Farmer</span>
+                        </div>
+                    </label>
+
+                    <label class="role-option">
+                        <input type="radio" name="role" value="RESEARCHER">
+                        <div class="role-card">
+                            <span class="material-symbols-outlined">science</span>
+                            <span class="role-name">Researcher</span>
+                        </div>
+                    </label>
+
+                    <label class="role-option">
+                        <input type="radio" name="role" value="ADMIN">
+                        <div class="role-card">
+                            <span class="material-symbols-outlined">admin_panel_settings</span>
+                            <span class="role-name">Admin</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <div class="input-wrapper">
+                    <span class="material-symbols-outlined input-icon">key</span>
+                    <input type="password" name="password" placeholder="Create strong password" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Confirm Password</label>
+                <div class="input-wrapper">
+                    <span class="material-symbols-outlined input-icon">check_circle</span>
+                    <input type="password" name="password2" placeholder="Repeat password" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">Initialize Registration</button>
+        </form>
+        
+        {% if messages %}
+        <div style="margin-bottom: 15px;">
+            {% for message in messages %}
+                <div style="padding: 10px; border-radius: 8px; 
+                            margin-bottom: 8px; 
+                            {% if message.tags == 'error' %}background-color:#f87171;color:white;
+                            {% elif message.tags == 'success' %}background-color:#10b981;color:white;
+                            {% else %}background-color:#3b82f6;color:white;{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="auth-footer">
+            Already authorized? <a href="Login" class="auth-link">Login</a>
+        </div>
+    </div>
+
+<script>
+    // ⚠️ IMPORTANT: REPLACE THIS PLACEHOLDER DATA WITH YOUR ACTUAL DJANGO CONTEXT VARIABLE
+    // If you pass this data from your Django view to the template, you will render it here, like:
+    // const STATE_DISTRICT_DATA = JSON.parse('{{ state_district_data_json|escapejs }}');
+    
+    const STATE_DISTRICT_DATA = {
+        "Andhra Pradesh": ["Anantapur", "Chittoor", "East Godavari"],
+        "Madhya Pradesh": ["Bhopal", "Indore", "Jabalpur", "Gwalior", "Sagar"],
+        "Maharashtra": ["Mumbai", "Pune", "Nagpur", "Nashik", "Aurangabad"],
+        "Gujarat": ["Ahmedabad", "Surat", "Vadodara", "Rajkot"],
+        "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai"],
+    };
+
+    const stateSelect = document.getElementById('state-select');
+    const districtSelect = document.getElementById('district-select');
+
+    function populateStates() {
+        // Clear existing options (only the default "Select State" should remain)
+        // Sort states alphabetically for better user experience
+        const states = Object.keys(STATE_DISTRICT_DATA).sort();
+
+        states.forEach(state => {
+            const option = document.createElement('option');
+            option.value = state;
+            option.textContent = state;
+            stateSelect.appendChild(option);
+        });
+    }
+
+    function populateDistricts() {
+        const selectedState = stateSelect.value;
+        
+        // Clear all previous district options, keeping only the default placeholder
+        districtSelect.innerHTML = '<option value="">-- Select District --</option>';
+
+        if (selectedState) {
+            const districts = STATE_DISTRICT_DATA[selectedState];
+            
+            // Sort districts alphabetically
+            districts.sort().forEach(district => {
+                const option = document.createElement('option');
+                option.value = district;
+                option.textContent = district;
+                districtSelect.appendChild(option);
+            });
+            
+            districtSelect.disabled = false;
+        } else {
+            districtSelect.disabled = true;
+        }
+    }
+
+    // Event Listeners
+    stateSelect.addEventListener('change', populateDistricts);
+
+    // Initialization
+    document.addEventListener('DOMContentLoaded', populateStates);
+</script>
+</body>
+</html>

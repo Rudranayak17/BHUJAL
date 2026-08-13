@@ -1,0 +1,950 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="view-transition" content="same-origin" />
+    
+    <title>Groundwater Dashboard</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+</head>
+<body>
+    {{ plot_json|json_script:"plot-data-json" }}
+
+    <nav class="navbar">
+        <div class="brand">
+            <span class="material-symbols-outlined icon">water_drop</span>
+            <div> <span style="font-weight:400; opacity:0.6; font-size:0.9em;"></span></div>
+        </div>
+        
+        <div class="user-menu">
+            <span class="material-symbols-outlined notification-badge" style="cursor:pointer;">notifications</span>
+             <a href="{% url 'Logout' %}" class="btn-logout" id="logoutBtn">Logout</a>
+            <div class="profile">
+                <div class="user-info">
+                    <div class="user-name">{{user.username}}</div>
+                    <div class="user-role">{{user.profile.role}}</div>
+                </div>
+                <div class="avatar">
+                    {{ user.username|slice:":2"|upper }}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="app-body">
+        
+        <aside class="sidebar">
+            <a href="{% url 'Dashboard' %}" class="nav-item active" title="Monitor">
+                <span class="material-symbols-outlined">dashboard</span>
+            </a>
+            
+            <a href="{% url 'storage_calculator' %}" class="nav-item" title="Estimation & ML">
+                <span class="material-symbols-outlined">analytics</span>
+            </a>
+            
+            <a href="{% url 'Report' %}" class="nav-item" title="Download Reports">
+                <span class="material-symbols-outlined">description</span>
+            </a>
+            
+            <div style="flex:1"></div> 
+                <span class="material-symbols-outlined">settings</span>
+        </aside>
+
+        <main class="main-view">
+            <header class="page-header">
+                <div>
+                    <h2>Overview</h2>
+                    <p>Real-time groundwater monitoring and analysis across India.</p>
+                </div>
+                <div class="status-badge">
+                    <span class="status-dot"></span> System Online
+                </div>
+            </header>
+
+            {% if result.error %}
+            <div class="alert-box alert-error" style="background:#fee2e2; border:1px solid #f87171; color:#991b1b; padding:12px 16px; border-radius:8px; margin-bottom:20px; font-size:0.95rem;">
+                <strong>Notice:</strong> {{ result.error }}
+            </div>
+            {% endif %}
+            {% if result.msg %}
+            <div class="alert-box alert-success" style="background:#dcfce7; border:1px solid #4ade80; color:#166534; padding:12px 16px; border-radius:8px; margin-bottom:20px; font-size:0.95rem;">
+                <strong>Success:</strong> {{ result.msg }}
+            </div>
+            {% endif %}
+
+            <div class="dashboard-grid">
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="material-symbols-outlined">tune</span> Query Parameters
+                    </div>
+                    <div class="panel-body">
+                        <form method="post" class="dashboard-form" id="queryForm">
+                            {% csrf_token %}
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="stateSelect">State</label>
+                                    <select name="stateName" id="stateSelect" required>
+                                        <option value="">-- Select State --</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="districtSelect">District</label>
+                                    <select name="districtName" id="districtSelect" required>
+                                        <option value="">-- Select State First --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group" style="flex:1;">
+                                    <label for="stationSelect">Station (Optional)</label>
+                                    <select name="stationName" id="stationSelect">
+                                        <option value="ALL">-- All Stations --</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="startDate">Start Date</label>
+                                    <input type="date" name="startDate" id="startDate" value="{{ form.startDate.value|default:'' }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="endDate">End Date</label>
+                                    <input type="date" name="endDate" id="endDate" value="{{ form.endDate.value|default:'' }}" required>
+                                </div>
+                            </div>
+                            <div class="btn-group">
+                                <button type="submit" class="btn-submit" style="flex:2;">Generate Graph</button>
+                                <button type="button" id="btnSaveLocation" class="btn-secondary">
+                                    <span class="material-symbols-outlined">bookmark_add</span>
+                                </button>
+                            </div>
+                        </form>
+
+                        <div class="bookmarks-container" style="margin-top:20px; border-top:1px solid var(--glass-border); padding-top:15px;">
+                            <span class="bookmarks-label" style="font-size:0.85rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Saved Locations</span>
+                            <div id="bookmarksList"></div>
+                            <div id="noBookmarksMsg" style="display:none; text-align:center; padding:10px; color:var(--text-muted); font-size:0.9rem;">No saved locations.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">
+                        <span class="material-symbols-outlined">monitoring</span> Water Level Trends
+                    </div>
+                    
+                    {% if plot_json %}
+                        <div class="controls-toolbar" id="station-controls"></div>
+                        <div id="myDiv" style="flex:1; width:100%; min-height: 0;"></div>
+                    {% else %}
+                        <div class="empty-state" style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; color:var(--text-muted);">
+                            <span class="material-symbols-outlined" style="font-size:4rem; opacity:0.2; margin-bottom:10px;">bar_chart</span>
+                            <p>Select parameters to view data.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+    <script>
+        // Pass Django variables to JS safely
+        window.djangoData = {
+            plotJson: {{ plot_json|safe|default:"null" }},
+            initialState: "{{ form.stateName.value|default:'' }}",
+            initialDistrict: "{{ form.districtName.value|default:'' }}",
+            initialStation: "{{ form.stationName.value|default:'' }}"
+        };
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+    
+            // --- 1. CONFIG & DATA ---
+            const STORAGE_KEY = 'hydro_bookmarks';
+            // DATA_MAP for States and Districts
+            const dataMap = {
+  "Andhra Pradesh": [
+    "Alluri Sitharama Raju",
+    "Ananthapuramu",
+    "Annamayya",
+    "Bapatla",
+    "Chittoor",
+    "East Godavari",
+    "Eluru",
+    "Guntur",
+    "Krishna",
+    "Kurnool",
+    "Nandyal",
+    "Nellore",
+    "Palnadu",
+    "Prakasam",
+    "Srikakulam",
+    "Sri Sathya Sai",
+    "Visakhapatnam",
+    "Vizianagaram",
+    "West Godavari"
+  ],
+  "Arunachal Pradesh": [
+    "Changlang",
+    "East Siang",
+    "Lohit",
+    "Lower Dibang Valley",
+    "Lower Subansiri",
+    "Namsai",
+    "Papum Pare",
+    "Tirap"
+  ],
+  "Assam": [
+    "Baksa",
+    "Barpeta",
+    "Biswanath",
+    "Bongaigaon",
+    "Cachar",
+    "Chirang",
+    "Darrang",
+    "Dhemaji",
+    "Dhubri",
+    "Dibrugarh",
+    "Goalpara",
+    "Golaghat",
+    "Hailakandi",
+    "Hojai",
+    "Jorhat",
+    "Kamrup",
+    "Kamrup Metropolitan",
+    "Karbi Anglong",
+    "Karimganj",
+    "Kokrajhar",
+    "Lakhimpur",
+    "Nagaon",
+    "Nalbari",
+    "Sonitpur",
+    "Tinsukia",
+    "Udalguri"
+  ],
+  "Bihar": [
+    "Araria",
+    "Aurangabad",
+    "Banka",
+    "Begusarai",
+    "Bhagalpur",
+    "Bhojpur",
+    "Buxar",
+    "Darbhanga",
+    "Gaya",
+    "Gopalganj",
+    "Jamui",
+    "Jehanabad",
+    "Kaimur",
+    "Katihar",
+    "Khagaria",
+    "Kishanganj",
+    "Lakhisarai",
+    "Madhepura",
+    "Madhubani",
+    "Munger",
+    "Muzaffarpur",
+    "Nalanda",
+    "Nawada",
+    "Patna",
+    "Purnia",
+    "Rohtas",
+    "Saharsa",
+    "Samastipur",
+    "Saran",
+    "Sheikhpura",
+    "Sheohar",
+    "Sitamarhi",
+    "Siwan",
+    "Supaul",
+    "Vaishali"
+  ],
+  "Chhattisgarh": [
+    "Balod",
+    "Bastar",
+    "Bemetara",
+    "Bilaspur",
+    "Dantewada",
+    "Dhamtari",
+    "Durg",
+    "Gariaband",
+    "Janjgir-Champa",
+    "Jashpur",
+    "Kabirdham",
+    "Kanker",
+    "Kondagaon",
+    "Korba",
+    "Mahasamund",
+    "Mungeli",
+    "Raigarh",
+    "Raipur",
+    "Rajnandgaon",
+    "Sukma",
+    "Surajpur",
+    "Surguja"
+  ],
+  "Goa": [
+    "North Goa",
+    "South Goa"
+  ],
+  "Gujarat": [
+    "Ahmedabad",
+    "Amreli",
+    "Anand",
+    "Banaskantha",
+    "Bharuch",
+    "Bhavnagar",
+    "Chhota Udaipur",
+    "Dang",
+    "Devbhumi Dwarka",
+    "Gandhinagar",
+    "Gir Somnath",
+    "Jamnagar",
+    "Junagadh",
+    "Kheda",
+    "Morbi",
+    "Narmada",
+    "Navsari",
+    "Patan",
+    "Porbandar",
+    "Rajkot",
+    "Sabarkantha",
+    "Surat",
+    "Surendranagar",
+    "Tapi",
+    "Vadodara",
+    "Valsad"
+  ],
+  "Haryana": [
+    "Ambala",
+    "Bhiwani",
+    "Charkhi Dadri",
+    "Faridabad",
+    "Fatehabad",
+    "Gurugram",
+    "Hisar",
+    "Jhajjar",
+    "Jind",
+    "Kaithal",
+    "Karnal",
+    "Kurukshetra",
+    "Mahendragarh",
+    "Nuh",
+    "Palwal",
+    "Panchkula",
+    "Panipat",
+    "Rewari",
+    "Rohtak",
+    "Sirsa",
+    "Sonipat",
+    "Yamunanagar"
+  ],
+  "Himachal Pradesh": [
+    "Bilaspur",
+    "Chamba",
+    "Hamirpur",
+    "Kangra",
+    "Kullu",
+    "Mandi",
+    "Sirmaur",
+    "Solan",
+    "Una"
+  ],
+  "Jharkhand": [
+    "Bokaro",
+    "Chatra",
+    "Deoghar",
+    "Dhanbad",
+    "Dumka",
+    "Garhwa",
+    "Giridih",
+    "Godda",
+    "Gumla",
+    "Hazaribag",
+    "Jamtara",
+    "Khunti",
+    "Latehar",
+    "Lohardaga",
+    "Pakur",
+    "Ramgarh",
+    "Ranchi"
+  ],
+  "Karnataka": [
+    "Ballari",
+    "Bangalore Rural",
+    "Bangalore Urban",
+    "Bidar",
+    "Chitradurga",
+    "Davanagere",
+    "Dharwad",
+    "Kalaburagi",
+    "Hassan",
+    "Haveri",
+    "Kodagu",
+    "Kolar",
+    "Koppal",
+    "Mandya",
+    "Mysore",
+    "Raichur",
+    "Udupi",
+    "Uttara Kannada",
+    "Bijapur",
+    "Yadgir"
+  ],
+  "Kerala": [
+    "Alappuzha",
+    "Ernakulam",
+    "Idukki",
+    "Kannur",
+    "Kasaragod",
+    "Kollam",
+    "Kottayam",
+    "Kozhikode",
+    "Malappuram",
+    "Palakkad",
+    "Pathanamthitta",
+    "Thiruvananthapuram",
+    "Thrissur",
+    "Wayanad"
+  ],
+  "Madhya Pradesh": [
+    "Agar Malwa",
+    "Alirajpur",
+    "Anuppur",
+    "Balaghat",
+    "Barwani",
+    "Betul",
+    "Bhind",
+    "Bhopal",
+    "Burhanpur",
+    "Chhatarpur",
+    "Chhindwara",
+    "Damoh",
+    "Datia",
+    "Dewas",
+    "Dhar",
+    "Dindori",
+    "Guna",
+    "Gwalior",
+    "Harda",
+    "Hoshangabad",
+    "Indore",
+    "Jabalpur",
+    "Jhabua",
+    "Katni",
+    "Khandwa",
+    "Khargone",
+    "Mandla",
+    "Mandsaur",
+    "Morena",
+    "Neemuch",
+    "Panna",
+    "Raisen",
+    "Rajgarh",
+    "Ratlam",
+    "Rewa",
+    "Sagar",
+    "Satna",
+    "Sehore",
+    "Seoni",
+    "Shahdol",
+    "Shajapur",
+    "Sheopur",
+    "Shivpuri",
+    "Sidhi",
+    "Singrauli",
+    "Tikamgarh",
+    "Ujjain",
+    "Umaria",
+    "Vidisha"
+  ],
+  "Maharashtra": [
+    "Akola",
+    "Amravati",
+    "Aurangabad",
+    "Beed",
+    "Bhandara",
+    "Chandrapur",
+    "Osmanabad",
+    "Dhule",
+    "Gadchiroli",
+    "Gondia",
+    "Hingoli",
+    "Jalgaon",
+    "Jalna",
+    "Kolhapur",
+    "Latur",
+    "Mumbai City",
+    "Mumbai Suburban",
+    "Nanded",
+    "Nandurbar",
+    "Nagpur",
+    "Nashik",
+    "Palghar",
+    "Parbhani",
+    "Pune",
+    "Raigad",
+    "Ratnagiri",
+    "Sangli",
+    "Satara",
+    "Solapur",
+    "Thane",
+    "Wardha",
+    "Washim",
+    "Yavatmal"
+  ],
+  "Meghalaya": [
+    "East Garo Hills",
+    "East Jaintia Hills",
+    "East Khasi Hills",
+    "Eastern West Khasi Hills",
+    "North Garo Hills",
+    "Ri Bhoi",
+    "West Garo Hills",
+    "West Khasi Hills"
+  ],
+  "Nagaland": [
+    "Dimapur",
+    "Kohima",
+    "Mokokchung",
+    "Mon",
+    "Phek",
+    "Tuensang",
+    "Wokha"
+  ],
+  "Odisha": [
+    "Bhadrak",
+    "Balangir",
+    "Bargarh",
+    "Cuttack",
+    "Debagarh",
+    "Dhenkanal",
+    "Ganjam",
+    "Gajapati",
+    "Jharsuguda",
+    "Khordha",
+    "Kendujhar",
+    "Kalahandi",
+    "Kandhamal",
+    "Koraput",
+    "Kendrapara",
+    "Malkangiri",
+    "Mayurbhanj",
+    "Nuapada",
+    "Nayagarh",
+    "Puri",
+    "Rayagada",
+    "Sambalpur",
+    "Sundargarh"
+  ],
+  "Punjab": [
+    "Amritsar",
+    "Barnala",
+    "Bathinda",
+    "Faridkot",
+    "Fatehgarh Sahib",
+    "Fazilka",
+    "Gurdaspur",
+    "Hoshiarpur",
+    "Jalandhar",
+    "Kapurthala",
+    "Ludhiana",
+    "Mansa",
+    "Moga",
+    "Pathankot",
+    "Patiala",
+    "Sangrur",
+    "Tarn Taran"
+  ],
+  "Rajasthan": [
+    "Ajmer",
+    "Alwar",
+    "Banswara",
+    "Baran",
+    "Barmer",
+    "Bharatpur",
+    "Bhilwara",
+    "Bikaner",
+    "Bundi",
+    "Chittorgarh",
+    "Churu",
+    "Dausa",
+    "Dholpur",
+    "Dungarpur",
+    "Hanumangarh",
+    "Jaipur",
+    "Jaisalmer",
+    "Jalore",
+    "Jhalawar",
+    "Jhunjhunu",
+    "Jodhpur",
+    "Karauli",
+    "Kota",
+    "Nagaur",
+    "Pali",
+    "Pratapgarh",
+    "Rajsamand",
+    "Sawai Madhopur",
+    "Sikar",
+    "Sirohi",
+    "Tonk",
+    "Udaipur"
+  ],
+  "Tamil Nadu": [
+    "Ariyalur",
+    "Chennai",
+    "Coimbatore",
+    "Cuddalore",
+    "Dharmapuri",
+    "Dindigul",
+    "Erode",
+    "Kanyakumari",
+    "Karur",
+    "Krishnagiri",
+    "Madurai",
+    "Nagapattinam",
+    "Nilgiris",
+    "Namakkal",
+    "Perambalur",
+    "Pudukkottai",
+    "Ramanathapuram",
+    "Salem",
+    "Sivaganga",
+    "Tenkasi",
+    "Tiruppur",
+    "Tiruchirappalli",
+    "Theni",
+    "Tirunelveli",
+    "Thanjavur",
+    "Thoothukudi",
+    "Tiruvallur",
+    "Tiruvarur",
+    "Tiruvannamalai",
+    "Vellore",
+    "Viluppuram",
+    "Virudhunagar"
+  ],
+  "Telangana": [
+    "Adilabad",
+    "Hanamkonda",
+    "Hyderabad",
+    "Jangaon",
+    "Kamareddy",
+    "Karimnagar",
+    "Khammam",
+    "Mahabubabad",
+    "Mahbubnagar",
+    "Mancherial",
+    "Medak",
+    "Medchal–Malkajgiri",
+    "Mulugu",
+    "Nalgonda",
+    "Nagarkurnool",
+    "Narayanpet",
+    "Nirmal",
+    "Nizamabad",
+    "Rajanna Sircilla",
+    "Ranga Reddy",
+    "Siddipet",
+    "Suryapet",
+    "Vikarabad",
+    "Wanaparthy"
+  ],
+  "Tripura": [
+    "Dhalai",
+    "Gomati",
+    "North Tripura",
+    "Sepahijala",
+    "South Tripura",
+    "Unakoti",
+    "West Tripura"
+  ],
+  "Uttar Pradesh": [
+    "Agra",
+    "Aligarh",
+    "Ambedkar Nagar",
+    "Auraiya",
+    "Ayodhya",
+    "Azamgarh",
+    "Bahraich",
+    "Ballia",
+    "Balrampur",
+    "Banda",
+    "Barabanki",
+    "Bareilly",
+    "Basti",
+    "Bhadohi",
+    "Bijnor",
+    "Budaun",
+    "Chandauli",
+    "Chitrakoot",
+    "Deoria",
+    "Etah",
+    "Etawah",
+    "Firozabad",
+    "Ghaziabad",
+    "Gonda",
+    "Gorakhpur",
+    "Hamirpur",
+    "Hapur",
+    "Hardoi",
+    "Hathras",
+    "Jalaun",
+    "Jaunpur",
+    "Jhansi",
+    "Kaushambi",
+    "Kannauj",
+    "Kanpur Dehat",
+    "Kheri",
+    "Lalitpur",
+    "Lucknow",
+    "Mahoba",
+    "Mainpuri",
+    "Mathura",
+    "Mau",
+    "Meerut",
+    "Mirzapur",
+    "Moradabad",
+    "Muzaffarnagar",
+    "Pilibhit",
+    "Pratapgarh",
+    "Rampur",
+    "Saharanpur",
+    "Sambhal",
+    "Shamli",
+    "Siddharthnagar",
+    "Sitapur",
+    "Sonbhadra",
+    "Sultanpur",
+    "Unnao",
+    "Varanasi"
+  ],
+  "Uttarakhand": [
+    "Almora",
+    "Champawat",
+    "Dehradun",
+    "Haridwar",
+    "Nainital",
+    "Pauri Garhwal",
+    "Udham Singh Nagar",
+    "Uttarkashi"
+  ],
+  "West Bengal": [
+    "Alipurduar",
+    "Bankura",
+    "Birbhum",
+    "Cooch Behar",
+    "Hooghly",
+    "Howrah",
+    "Jalpaiguri",
+    "Jhargram",
+    "Kolkata",
+    "Murshidabad",
+    "Nadia",
+    "North 24 Parganas",
+    "South 24 Parganas",
+    "South Dinajpur"
+  ],
+  "Delhi": [
+    "New Delhi",
+    "South East Delhi"
+  ],
+  "Puducherry": [
+    "Karaikal",
+    "Puducherry",
+    "Yanam"
+  ]
+};
+            const stateSelect = document.getElementById('stateSelect');
+            const districtSelect = document.getElementById('districtSelect');
+            const stationSelect = document.getElementById('stationSelect');
+
+            function fetchStations(state, district, selectedStation) {
+                if (!stationSelect) return;
+                stationSelect.innerHTML = '<option value="ALL">-- All Stations --</option>';
+                if (!state || !district) return;
+
+                fetch(`/Dashboard/api/stations/?state=${encodeURIComponent(state)}&district=${encodeURIComponent(district)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.stations && data.stations.length > 0) {
+                            data.stations.forEach(s => {
+                                const opt = document.createElement('option');
+                                opt.value = s.station_name;
+                                opt.textContent = s.station_name;
+                                if (selectedStation && s.station_name.toLowerCase() === selectedStation.toLowerCase()) {
+                                    opt.selected = true;
+                                }
+                                stationSelect.appendChild(opt);
+                            });
+                        }
+                    })
+                    .catch(err => console.log('Station fetch error:', err));
+            }
+
+            // --- 2. DROPDOWN LOGIC ---
+            if (stateSelect && districtSelect) {
+                // Populate States
+                for (const state in dataMap) {
+                    const option = document.createElement('option');
+                    option.value = state;
+                    option.textContent = state;
+                    stateSelect.appendChild(option);
+                }
+
+                // Handle Change
+                stateSelect.addEventListener('change', function() {
+                    updateDistricts(this.value);
+                    if (stationSelect) stationSelect.innerHTML = '<option value="ALL">-- All Stations --</option>';
+                });
+
+                districtSelect.addEventListener('change', function() {
+                    fetchStations(stateSelect.value, this.value);
+                });
+
+                // Pre-fill from Django Context
+                if (window.djangoData.initialState) {
+                    stateSelect.value = window.djangoData.initialState;
+                    updateDistricts(window.djangoData.initialState);
+                    if (window.djangoData.initialDistrict) {
+                        districtSelect.value = window.djangoData.initialDistrict;
+                        fetchStations(window.djangoData.initialState, window.djangoData.initialDistrict, window.djangoData.initialStation);
+                    }
+                }
+            }
+
+            function updateDistricts(selectedState) {
+                districtSelect.innerHTML = '<option value="">-- Select District --</option>';
+                if (selectedState && dataMap[selectedState]) {
+                    dataMap[selectedState].forEach(district => {
+                        const option = document.createElement('option');
+                        option.value = district;
+                        option.textContent = district;
+                        districtSelect.appendChild(option);
+                    });
+                }
+            }
+
+            // --- 3. BOOKMARK LOGIC ---
+            const list = document.getElementById('bookmarksList');
+            const noMsg = document.getElementById('noBookmarksMsg');
+            const btnSave = document.getElementById('btnSaveLocation');
+            const btnLogout = document.getElementById('logoutBtn');
+
+            if (btnLogout) {
+                btnLogout.addEventListener('click', () => localStorage.removeItem(STORAGE_KEY));
+            }
+
+            // Auto-fill function (attached to window to be accessible from HTML onclicks generated in JS)
+            window.autoFill = function(state, district) {
+                stateSelect.value = state;
+                updateDistricts(state);
+                districtSelect.value = district;
+            };
+
+            window.deleteBookmark = function(event, id) {
+                event.stopPropagation();
+                if(!confirm("Remove this location?")) return;
+                let saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                saved = saved.filter(item => item.id !== id);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+                renderBookmarks();
+            };
+
+            function renderBookmarks() {
+                const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                list.innerHTML = '';
+                
+                if (saved.length === 0) {
+                    noMsg.style.display = 'block';
+                } else {
+                    noMsg.style.display = 'none';
+                    saved.forEach(loc => {
+                        const card = `
+                        <div class="bookmark-card" onclick="autoFill('${loc.state}', '${loc.district}')">
+                            <div class="bookmark-info">
+                                <span class="material-symbols-outlined bookmark-icon">location_on</span>
+                                <div>
+                                    <div style="font-weight:600;">${loc.district}</div>
+                                    <div style="font-size:0.8em; color:var(--text-muted);">${loc.state}</div>
+                                </div>
+                            </div>
+                            <div class="delete-btn" onclick="deleteBookmark(event, ${loc.id})">
+                                <span class="material-symbols-outlined" style="font-size:1.2rem;">close</span>
+                            </div>
+                        </div>`;
+                        list.insertAdjacentHTML('beforeend', card);
+                    });
+                }
+            }
+
+            if (btnSave) {
+                btnSave.addEventListener('click', function() {
+                    const state = stateSelect.value;
+                    const district = districtSelect.value;
+                    if(!state || !district) { alert("Please select a State and District first."); return; }
+
+                    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+                    if (saved.some(item => item.state === state && item.district === district)) {
+                        alert("Location already saved.");
+                        return;
+                    }
+
+                    saved.unshift({ id: Date.now(), state, district });
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+                    renderBookmarks();
+                });
+            }
+
+            // Initial Render
+            renderBookmarks();
+
+            // --- 4. PLOTLY LOGIC ---
+            if (window.djangoData.plotJson) {
+                const plotData = window.djangoData.plotJson;
+                
+                // Layout Styling
+                if(!plotData.layout) plotData.layout = {};
+                plotData.layout.paper_bgcolor = 'rgba(0,0,0,0)';
+                plotData.layout.plot_bgcolor = 'rgba(0,0,0,0)';
+                plotData.layout.font = { family: 'Inter, sans-serif', color: '#94a3b8' };
+                
+                const axisConfig = { gridcolor: '#2d333b', zerolinecolor: '#3b82f6', linecolor: '#94a3b8' };
+                plotData.layout.xaxis = Object.assign(plotData.layout.xaxis || {}, axisConfig);
+                plotData.layout.yaxis = Object.assign(plotData.layout.yaxis || {}, axisConfig);
+                plotData.layout.margin = { l: 40, r: 20, t: 20, b: 40 };
+
+                Plotly.newPlot('myDiv', plotData.data, plotData.layout, { responsive: true, displayModeBar: false });
+
+                // Custom Legend Controls
+                const controlsDiv = document.getElementById('station-controls');
+                if(controlsDiv && plotData.data) {
+                    plotData.data.forEach((trace, index) => {
+                        const label = document.createElement('label');
+                        label.className = 'station-chip active';
+                        
+                        const cb = document.createElement('input');
+                        cb.type = 'checkbox';
+                        cb.checked = true;
+                        
+                        cb.addEventListener('change', function(){
+                            const update = {'visible': this.checked ? true : 'legendonly'};
+                            Plotly.restyle('myDiv', update, [index]);
+                            this.checked ? label.classList.add('active') : label.classList.remove('active');
+                        });
+
+                        label.append(cb, Object.assign(document.createElement('div'), {className: 'dot'}), document.createTextNode(trace.name || `Trace ${index}`));
+                        controlsDiv.appendChild(label);
+                    });
+                }
+            }
+        });
+    </script>
+</body>
+</html>

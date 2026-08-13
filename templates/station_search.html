@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>Groundwater Station Search</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        /* Base Reset & Fonts */
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f9f9f9; color: #333; }
+        
+        /* Container */
+        .container { 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        }
+
+        h2 { text-align: center; color: #2c3e50; margin-bottom: 20px; }
+
+        /* Mobile-First Form Styling */
+        form#stationForm {
+            display: flex;
+            flex-wrap: wrap; /* Allows stacking on mobile */
+            gap: 10px;
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+            justify-content: center;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 200px; /* Won't shrink too small */
+        }
+
+        label { font-weight: bold; font-size: 0.9em; margin-bottom: 5px; color: #555; }
+        
+        select, button { 
+            padding: 12px; 
+            border: 1px solid #ccc; 
+            border-radius: 4px; 
+            font-size: 16px; /* Prevents zoom on iPhone */
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            flex: 0 0 auto;
+            margin-top: auto; /* Aligns with inputs */
+            min-width: 150px;
+        }
+
+        button:hover { background-color: #2980b9; }
+
+        /* Map Style */
+        #map { 
+            height: 400px; 
+            width: 100%; 
+            margin-top: 20px; 
+            border-radius: 8px; 
+            border: 1px solid #ddd;
+            z-index: 1; /* Keep below sticky headers if any */
+        }
+
+        /* Responsive Table Wrapper */
+        .table-responsive {
+            margin-top: 20px;
+            overflow-x: auto; /* Allows scrolling on mobile */
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            min-width: 600px; /* Forces scroll on small screens */
+        }
+
+        th, td { 
+            padding: 12px 15px; 
+            text-align: left; 
+            border-bottom: 1px solid #eee; 
+        }
+
+        th { 
+            background-color: #34495e; 
+            color: white; 
+            white-space: nowrap; 
+        }
+
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        tr:hover { background-color: #e2e6ea; }
+
+        /* Mobile Adjustments */
+        @media (max-width: 600px) {
+            .container { padding: 10px; }
+            #map { height: 300px; } /* Smaller map on phone */
+            h2 { font-size: 1.5em; }
+            button { width: 100%; } /* Full width button */
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Groundwater Dashboard</h2>
+    
+    <form id="stationForm">
+        <div class="form-group">
+            <label>State</label>
+            <select id="state-select">
+                <option value="">Select State</option>
+                {% for state in states %}
+                    <option value="{{ state }}">{{ state }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>District</label>
+            <select id="district-select" disabled>
+                <option value="">Select State First</option>
+            </select>
+        </div>
+        
+        <button type="button" onclick="fetchStations()">Search</button>
+    </form>
+
+    
+    <div id="map"></div>
+
+    <h3>Results</h3>
+    <div class="table-responsive">
+        <table id="results-table">
+            <thead>
+                <tr>
+                    <th>Station Name</th>
+                    <th>Code</th>
+                    <th>Yield</th>
+                    <th>Area (sq km)</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="5" style="text-align:center; color:#888;">Select a location to see data</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+    const stateSelect = document.getElementById('state-select');
+    const districtSelect = document.getElementById('district-select');
+    const resultsBody = document.querySelector('#results-table tbody');
+
+    // Initialize Map
+    const map = L.map('map').setView([20.5937, 78.9629], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+    let markersLayer = L.layerGroup().addTo(map);
+
+    // 1. Load Districts
+    stateSelect.addEventListener('change', function() {
+        const state = this.value;
+        districtSelect.innerHTML = '<option value="">Loading...</option>';
+        districtSelect.disabled = true;
+        
+        if (state) {
+            fetch(`{% url 'ajax_load_districts' %}?state=${encodeURIComponent(state)}`)
+                .then(r => r.json())
+                .then(data => {
+                    districtSelect.innerHTML = '<option value="">Select District</option>';
+                    data.forEach(d => {
+                        const opt = document.createElement('option');
+                        opt.value = d;
+                        opt.textContent = d;
+                        districtSelect.appendChild(opt);
+                    });
+                    districtSelect.disabled = false;
+                });
+        }
+    });
+
+    // 2. Fetch Stations (Now uses DB data directly)
+    function fetchStations() {
+        const state = stateSelect.value;
+        const district = districtSelect.value;
+
+        if (state && district) {
+            const url = `{% url 'ajax_load_stations' %}?state=${encodeURIComponent(state)}&district=${encodeURIComponent(district)}`;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    resultsBody.innerHTML = '';
+                    markersLayer.clearLayers();
+
+                    if (data.length === 0) {
+                        resultsBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No stations found.</td></tr>';
+                    } else {
+                        const bounds = [];
+
+                        data.forEach(station => {
+                            // Helper to handle null values nicely
+                            const yieldVal = station.aquifer_yield ? `${station.aquifer_yield}` : '<span style="color:#ccc">N/A</span>';
+                            const areaVal = station.aquifer_area ? `${station.aquifer_area.toFixed(2)}` : '<span style="color:#ccc">N/A</span>';
+
+                            // 1. Add Row to Table
+                            const row = `
+                                <tr>
+                                    <td><b>${station.station_name}</b></td>
+                                    <td>${station.station_code}</td>
+                                    <td>${yieldVal}</td>
+                                    <td>${areaVal}</td>
+                                    <td>
+                                        <button onclick="focusMap(${station.latitude}, ${station.longitude})" style="padding:5px 10px; font-size:12px; min-width:auto;">Map</button>
+                                    </td>
+                                </tr>
+                            `;
+                            resultsBody.innerHTML += row;
+
+                            // 2. Add Marker to Map
+                            if (station.latitude && station.longitude) {
+                                const marker = L.marker([station.latitude, station.longitude]);
+                                
+                                // Popup with DB data
+                                marker.bindPopup(`
+                                    <b>${station.station_name}</b><br>
+                                    Yield: ${yieldVal}<br>
+                                    Area: ${areaVal}
+                                `);
+                                
+                                markersLayer.addLayer(marker);
+                                bounds.push([station.latitude, station.longitude]);
+                            }
+                        });
+
+                        if (bounds.length > 0) {
+                            map.fitBounds(bounds);
+                        }
+                    }
+                });
+        } else {
+            alert("Please select both State and District");
+        }
+    }
+    
+    // Helper to zoom to a specific station from the table
+    function focusMap(lat, lon) {
+        if(lat && lon) {
+            map.setView([lat, lon], 14);
+            window.scrollTo({ top: document.getElementById('map').offsetTop - 20, behavior: 'smooth' });
+        } else {
+            alert("Coordinates missing for this station.");
+        }
+    }
+</script>
+
+</body>
+</html>
