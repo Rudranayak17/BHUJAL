@@ -133,6 +133,13 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-in { animation: fadeIn 0.5s ease-out forwards; }
 
+        .meta-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:12px; }
+        .meta-pill { background: var(--bg-app); border:1px solid var(--border); color: var(--text-muted); font-size:0.75rem; padding:4px 10px; border-radius:999px; }
+        .chart-wrap { width:100%; }
+        .chart-svg { width:100%; height:110px; display:block; }
+        .source-note { font-size:0.75rem; color: var(--text-muted); margin-top:8px; }
+        .empty-note { color: var(--text-muted); text-align:center; padding:20px; }
+
         /* --- STATION SELECTOR CHIPS --- */
         .station-scroller {
             display: flex;
@@ -191,17 +198,14 @@
                 </p>
             </div>
             
-            <form method="get" id="farmerLocForm" style="display:flex; gap:8px;">
-                <select name="state" id="fState" onchange="this.form.submit()" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem;">
-                    <option value="Chhattisgarh" {% if state == "Chhattisgarh" %}selected{% endif %}>Chhattisgarh</option>
-                    <option value="Madhya Pradesh" {% if state == "Madhya Pradesh" %}selected{% endif %}>Madhya Pradesh</option>
-                    <option value="Maharashtra" {% if state == "Maharashtra" %}selected{% endif %}>Maharashtra</option>
-                    <option value="Rajasthan" {% if state == "Rajasthan" %}selected{% endif %}>Rajasthan</option>
-                    <option value="Karnataka" {% if state == "Karnataka" %}selected{% endif %}>Karnataka</option>
-                    <option value="Tamil Nadu" {% if state == "Tamil Nadu" %}selected{% endif %}>Tamil Nadu</option>
-                    <option value="Uttar Pradesh" {% if state == "Uttar Pradesh" %}selected{% endif %}>Uttar Pradesh</option>
+            <form method="get" id="farmerLocForm" style="display:flex; gap:8px; flex-wrap:wrap;">
+                <select name="state" id="fState" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem;">
+                    {% for loc_state, loc_districts in locations.items %}
+                        <option value="{{ loc_state }}" {% if state == loc_state %}selected{% endif %}>{{ loc_state }}</option>
+                    {% endfor %}
                 </select>
-                <input type="text" name="district" value="{{ district }}" placeholder="District" onchange="this.form.submit()" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem; width:120px;">
+                <select name="district" id="fDistrict" onchange="this.form.submit()" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem; min-width:140px;">
+                </select>
             </form>
         </div>
 
@@ -226,24 +230,36 @@
 
         <div class="status-hero {{ status_class }} animate-in" style="animation-delay: 0.1s;">
             <div class="status-icon-wrapper">
-                <span class="material-symbols-outlined" style="font-size: 40px;">water_ec</span>
+                <span class="material-symbols-outlined" style="font-size: 40px;">water_drop</span>
             </div>
             
             <div class="status-label">{{ status_text }}</div>
             
             <div class="big-reading">
-                {% if current_level %}
+                {% if current_level is not None %}
                     {{ current_level|floatformat:1 }} m
                 {% else %}
                     --.-
                 {% endif %}
             </div>
             
-            <p style="font-size: 0.85rem; opacity: 0.8;">Current Groundwater Depth</p>
+            <p style="font-size: 0.85rem; opacity: 0.8;">Groundwater depth below ground (India-WRIS / CGWB)</p>
+            {% if active_station %}
+            <div class="meta-row">
+                <span class="meta-pill">{{ active_station.station_name }}</span>
+                {% if active_station.station_code %}<span class="meta-pill">{{ active_station.station_code }}</span>{% endif %}
+                {% if active_station.aquifer_system %}<span class="meta-pill">{{ active_station.aquifer_system }}</span>{% endif %}
+                {% if latest_time %}<span class="meta-pill">{{ latest_time|date:"d M Y, H:i" }}</span>{% endif %}
+                {% if data_source %}<span class="meta-pill">{{ data_source|title }} feed</span>{% endif %}
+            </div>
+            {% endif %}
             
             <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.9rem;">
                 {{ advice_text }}
             </div>
+            {% if fetch_error %}
+            <p class="source-note">Could not refresh live WRIS data: {{ fetch_error }}</p>
+            {% endif %}
         </div>
 
         <div class="panel animate-in" style="animation-delay: 0.2s;">
@@ -252,9 +268,9 @@
                 Seasonal Comparison
             </div>
             <div class="panel-body">
-                        {% if current_level %}
+                        {% if current_level is not None %}
                             <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">
-                                Comparing water levels today vs. last year.
+                                Comparing depth below ground now vs. the same period last year. A shorter bar means a deeper water table.
                             </p>
 
                             <div class="bar-chart-row">
@@ -288,12 +304,34 @@
                         </div>
                     </div>
                 {% else %}
-                    <p style="color: var(--text-muted); text-align: center; padding: 20px;">
-                        Data unavailable for this station.
+                    <p class="empty-note">
+                        No groundwater readings yet for this station. Try another district or station.
                     </p>
                 {% endif %}
             </div>
         </div>
+
+        {% if series %}
+        <div class="panel animate-in" style="animation-delay: 0.25s;">
+            <div class="panel-header">
+                <span class="material-symbols-outlined">show_chart</span>
+                Recent WRIS readings
+            </div>
+            <div class="panel-body">
+                <div class="chart-wrap">
+                    <svg class="chart-svg" viewBox="0 0 320 90" preserveAspectRatio="none">
+                        <polyline fill="none" stroke="#3b82f6" stroke-width="2.5" points="{{ chart_points }}"></polyline>
+                    </svg>
+                </div>
+                <div class="bar-label">
+                    <span>{{ series.0.label }}</span>
+                    <span>{{ chart_min|floatformat:1 }}–{{ chart_max|floatformat:1 }} m bgl</span>
+                </div>
+                <p class="source-note">Source: India-WRIS Data API (Admin Hierarchy) · agency CGWB. Depth shown as metres below ground.</p>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="panel animate-in" style="animation-delay: 0.3s;">
             <div class="panel-header">
                 <span class="material-symbols-outlined">calendar_clock</span>
@@ -322,5 +360,33 @@
 
     </div>
 
+<script>
+    const LOCATIONS = {{ locations_json|safe }};
+    const CURRENT_STATE = "{{ state|escapejs }}";
+    const CURRENT_DISTRICT = "{{ district|escapejs }}";
+    const stateSelect = document.getElementById('fState');
+    const districtSelect = document.getElementById('fDistrict');
+
+    function fillDistricts() {
+        const districts = LOCATIONS[stateSelect.value] || [];
+        districtSelect.innerHTML = '';
+        districts.forEach(function(name) {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            if (name === CURRENT_DISTRICT) opt.selected = true;
+            districtSelect.appendChild(opt);
+        });
+        if (districts.length && !districts.includes(CURRENT_DISTRICT)) {
+            districtSelect.value = districts[0];
+        }
+    }
+
+    stateSelect.addEventListener('change', function() {
+        fillDistricts();
+        document.getElementById('farmerLocForm').submit();
+    });
+    fillDistricts();
+</script>
 </body>
 </html>

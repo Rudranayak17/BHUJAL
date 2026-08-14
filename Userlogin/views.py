@@ -25,6 +25,8 @@ def Signup(request):
         password = request.POST.get('password', '')
         password2 = request.POST.get('password2', '')
         role = request.POST.get('role', Profile.Roles.FARMER)
+        state = request.POST.get('state', '').strip()
+        district = request.POST.get('district', '').strip()
         context = _signup_form_context(request)
 
         if not username or not email or not password:
@@ -48,7 +50,9 @@ def Signup(request):
                 user = User.objects.create_user(
                     username=username, email=email, password=password
                 )
-                Profile.objects.create(user=user, role=role)
+                Profile.objects.create(
+                    user=user, role=role, state=state, district=district
+                )
         except IntegrityError:
             messages.error(request, "Username already taken. Try logging in instead.")
             return render(request, 'Signup.html', context)

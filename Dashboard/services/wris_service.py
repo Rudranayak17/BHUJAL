@@ -1,6 +1,5 @@
 import requests
-import urllib.parse
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from django.utils import timezone
@@ -8,6 +7,8 @@ from django.db import close_old_connections
 from Dashboard.models import Station, GroundwaterLevel, DistrictLog
 
 INDIA_WRIS_URL = "https://indiawris.gov.in/Dataset/Ground Water Level"
+WRIS_PAGE_SIZE = 1000  # India-WRIS swagger max for getGroundWaterLevel
+WRIS_AGENCY = "CGWB"
 
 def create_wris_session():
     session = requests.Session()
@@ -29,15 +30,25 @@ def parse_iso_datetime(dt_str):
     except (ValueError, TypeError):
         return None
 
-def fetch_live_wris_data(state, district, start_date_str, end_date_str, station_name=None):
+def depth_below_ground(raw_depth):
+    """India-WRIS telemetric values are typically negative metres below ground."""
+    if raw_depth is None:
+        return None
+    try:
+        return abs(float(raw_depth))
+    except (TypeError, ValueError):
+        return None
+
+
+def fetch_live_wris_data(state, district, start_date_str, end_date_str, station_name=None, max_pages=None):
     """
-    Fetches live data from India-WRIS API for a given state, district, and date range.
+    Fetches live data from India-WRIS getGroundWaterLevel (admin hierarchy) API.
     Normalizes records, saves new Stations and GroundwaterLevels into DB cache,
     and returns count of fetched records.
     """
     session = create_wris_session()
     page = 0
-    batch_size = 5000
+    batch_size = WRIS_PAGE_SIZE
     total_fetched = 0
 
     state_clean = state.strip()
@@ -53,25 +64,36 @@ def fetch_live_wris_data(state, district, start_date_str, end_date_str, station_
 
     while True:
         close_old_connections()
-        state_q = urllib.parse.quote(state_clean)
-        district_q = urllib.parse.quote(district_clean)
-
-        url = (
-            f"{INDIA_WRIS_URL}?"
-            f"stateName={state_q}&districtName={district_q}"
-            f"&agencyName=CGWB&startdate={start_date_str}&enddate={end_date_str}"
-            f"&download=false&page={page}&size={batch_size}"
-        )
 
         try:
-            resp = session.post(url, headers=headers, timeout=30)
+            resp = session.post(
+                INDIA_WRIS_URL,
+                params={
+                    "stateName": state_clean,
+                    "districtName": district_clean,
+                    "agencyName": WRIS_AGENCY,
+                    "startdate": start_date_str,
+                    "enddate": end_date_str,
+                    "download": "false",
+                    "page": page,
+                    "size": batch_size,
+                },
+                headers=headers,
+                timeout=40,
+            )
             if resp.status_code != 200:
-                print(f"[WRIS Service] API return status {resp.status_code} for {state_clean}/{district_clean}")
+                print(f"[WRIS Service] HTTP {resp.status_code} for {state_clean}/{district_clean}")
                 break
 
             payload = resp.json()
-            data = payload.get("data", [])
-            if not data:
+            if payload.get("statusCode") not in (None, 200):
+                print(f"[WRIS Service] API message: {payload.get('message')}")
+                break
+
+            data = payload.get("data") or []
+            if isinstance(data, dict):
+                data = data.get("content") or data.get("data") or []
+            if not isinstance(data, list) or not data:
                 break
 
             total_fetched += len(data)
@@ -169,6 +191,8 @@ def fetch_live_wris_data(state, district, start_date_str, end_date_str, station_
                 break
 
             page += 1
+            if max_pages is not None and page >= max_pages:
+                break
 
         except Exception as e:
             print(f"[WRIS Service] Network/parsing exception: {e}")
@@ -177,7 +201,7 @@ def fetch_live_wris_data(state, district, start_date_str, end_date_str, station_
     return total_fetched
 
 
-def get_groundwater_data(state, district, start_date, end_date, station_name=None, force_live=False):
+def get_groundwater_data(state, district, start_date, end_date, station_name=None, force_live=False, max_pages=None):
     """
     Primary API function to retrieve groundwater data.
     Checks DB cache first; if empty/incomplete or force_live, queries India-WRIS live.
@@ -217,7 +241,9 @@ def get_groundwater_data(state, district, start_date, end_date, station_name=Non
     # Check if cache hit is sufficient
     if force_live or not records.exists():
         # Live fetch from India-WRIS
-        fetched = fetch_live_wris_data(state, district, start_date_str, end_date_str, station_name)
+        fetched = fetch_live_wris_data(
+            state, district, start_date_str, end_date_str, station_name, max_pages=max_pages
+        )
         source = "live"
         records = GroundwaterLevel.objects.filter(**base_filter).select_related("station").order_by("data_time")
 
@@ -245,10 +271,9 @@ def get_stations_for_location(state, district):
     stations = Station.objects.filter(state__iexact=state_clean, district__iexact=district_clean).order_by("station_name")
 
     if not stations.exists():
-        # Discovery fetch using 2025 to today
         end_str = datetime.now().strftime("%Y-%m-%d")
-        start_str = "2025-01-01"
-        fetch_live_wris_data(state_clean, district_clean, start_str, end_str)
+        start_str = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
+        fetch_live_wris_data(state_clean, district_clean, start_str, end_str, max_pages=6)
         stations = Station.objects.filter(state__iexact=state_clean, district__iexact=district_clean).order_by("station_name")
 
     return list(stations.values("id", "station_name", "station_code", "latitude", "longitude", "aquifer_system"))

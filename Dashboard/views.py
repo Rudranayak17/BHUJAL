@@ -14,7 +14,34 @@ from plotly.utils import PlotlyJSONEncoder
 from .forms import GroundWaterForm
 from .models import Station, GroundwaterLevel, DistrictLog
 from Userlogin.models import Profile
-from Dashboard.services.wris_service import get_groundwater_data, get_stations_for_location
+from Dashboard.services.wris_service import (
+    get_groundwater_data,
+    get_stations_for_location,
+    depth_below_ground,
+)
+
+FARMER_LOCATIONS = {
+    "Andhra Pradesh": ["Anantapur", "Chittoor", "East Godavari"],
+    "Chhattisgarh": ["Raipur", "Durg", "Bilaspur"],
+    "Gujarat": ["Ahmedabad", "Surat", "Vadodara", "Rajkot"],
+    "Karnataka": ["Bangalore Urban", "Mysuru", "Belagavi"],
+    "Madhya Pradesh": ["Bhopal", "Indore", "Jabalpur", "Gwalior", "Sagar"],
+    "Maharashtra": ["Pune", "Nagpur", "Nashik", "Aurangabad"],
+    "Odisha": ["Baleshwar", "Khordha", "Cuttack"],
+    "Rajasthan": ["Jaipur", "Jodhpur", "Udaipur"],
+    "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai"],
+    "Uttar Pradesh": ["Lucknow", "Varanasi", "Agra"],
+}
+
+
+def _downsample_series(points, limit=48):
+    if len(points) <= limit:
+        return points
+    step = max(1, len(points) // limit)
+    sampled = points[::step]
+    if sampled[-1] != points[-1]:
+        sampled.append(points[-1])
+    return sampled[-limit:]
 
 def Dashboard(request):
     result = None
@@ -101,21 +128,36 @@ def FarmerDashboard(request):
     district = request.GET.get('district', '').strip()
 
     if not state or not district:
-        first_log = DistrictLog.objects.first()
-        if first_log:
-            state = state or first_log.state
-            district = district or first_log.district
+        profile = getattr(request.user, 'profile', None)
+        if profile and getattr(profile, 'state', None) and getattr(profile, 'district', None):
+            state = state or profile.state
+            district = district or profile.district
         else:
-            state = state or "Chhattisgarh"
-            district = district or "Raipur"
+            first_log = DistrictLog.objects.first()
+            if first_log:
+                state = state or first_log.state
+                district = district or first_log.district
+            else:
+                state = state or "Andhra Pradesh"
+                district = district or "Anantapur"
 
-    max_depth = 40.0 
-    current_level = None 
+    locations = {name: list(dists) for name, dists in FARMER_LOCATIONS.items()}
+    if state not in locations:
+        locations[state] = [district] if district else []
+    if district and district not in locations[state]:
+        locations[state] = [district] + locations[state]
+
+    max_depth = 25.0
+    current_level = None
     last_year_level = None
-    
+    latest_time = None
+    data_source = None
+    series = []
+    fetch_error = None
+
     status_class = 'caution'
     status_text = 'No Data'
-    advice_text = "Select a station to view data."
+    advice_text = "Choose a state and district to load India-WRIS station readings."
     current_pct = 0
     last_year_pct = 0
     diff = 0
@@ -123,68 +165,88 @@ def FarmerDashboard(request):
     trend_icon = "horizontal_rule"
     trend_color = "var(--text-muted)"
 
-    all_stations = Station.objects.filter(state__iexact=state, district__iexact=district).order_by("station_name")
-    
+    try:
+        get_stations_for_location(state, district)
+    except Exception as exc:
+        fetch_error = str(exc)
+
+    all_stations = Station.objects.filter(
+        state__iexact=state, district__iexact=district
+    ).order_by("station_name")
+
     selected_id = request.GET.get('station_id')
     active_station = None
-
     if selected_id:
         active_station = all_stations.filter(id=selected_id).first()
-    
     if not active_station and all_stations.exists():
         active_station = all_stations.first()
 
     if active_station:
-        latest_record = GroundwaterLevel.objects.filter(station=active_station).order_by('-data_time').first()
-        if not latest_record:
-            end_str = datetime.now().strftime("%Y-%m-%d")
-            start_str = (datetime.now() - timedelta(days=365)).strftime("%Y-%m-%d")
-            get_groundwater_data(state, district, start_str, end_str)
-            latest_record = GroundwaterLevel.objects.filter(station=active_station).order_by('-data_time').first()
+        end_date = datetime.now().date()
+        start_date = end_date - timedelta(days=400)
+        try:
+            records, metadata = get_groundwater_data(
+                state, district, start_date, end_date,
+                station_name=active_station.station_name,
+                max_pages=8,
+            )
+            data_source = metadata.get("source")
+        except Exception as exc:
+            fetch_error = str(exc)
+            records = GroundwaterLevel.objects.none()
+            metadata = {}
 
+        latest_record = records.order_by('-data_time').first() if records is not None else None
         if latest_record:
-            current_level = float(latest_record.depth)
-            
+            current_level = depth_below_ground(latest_record.depth)
+            latest_time = latest_record.data_time
+
             target_date = latest_record.data_time - timedelta(days=365)
-            start_window = target_date - timedelta(days=15)
-            end_window = target_date + timedelta(days=15)
-            
-            past_record = GroundwaterLevel.objects.filter(
-                station=active_station,
-                data_time__range=(start_window, end_window)
+            past_record = records.filter(
+                data_time__range=(target_date - timedelta(days=20), target_date + timedelta(days=20))
             ).order_by('-data_time').first()
-            
             if past_record:
-                last_year_level = float(past_record.depth)
+                last_year_level = depth_below_ground(past_record.depth)
             else:
-                last_year_level = current_level 
+                last_year_level = current_level
+
+            raw_points = [
+                {
+                    "t": rec.data_time.strftime("%Y-%m-%d"),
+                    "label": rec.data_time.strftime("%d %b"),
+                    "d": round(depth_below_ground(rec.depth), 2),
+                }
+                for rec in records.order_by("data_time")
+            ]
+            # keep one reading per day (latest)
+            by_day = {}
+            for point in raw_points:
+                by_day[point["t"]] = point
+            series = _downsample_series(list(by_day.values()))
 
     if current_level is not None:
-        if current_level > -10:
+        if current_level < 8:
             status_class = 'safe'
             status_text = 'Water Level Safe'
-            advice_text = "Water levels are healthy. Standard irrigation permitted."
-        elif -20 <= current_level <= -10:
+            advice_text = "Groundwater is relatively shallow. Standard irrigation is fine."
+        elif current_level < 15:
             status_class = 'caution'
             status_text = 'Caution Required'
-            advice_text = "Water levels are dropping. Limit pump usage to 4 hours."
+            advice_text = "Water is deeper than usual. Limit pump use and prefer drip or evening watering."
         else:
             status_class = 'critical'
             status_text = 'Critical Drop'
-            advice_text = "Emergency restriction. Use drip irrigation only."
+            advice_text = "Water table is very deep. Use drip irrigation only and avoid long pumping."
 
-        curr_water_col = max(0, max_depth - current_level)
-        last_water_col = max(0, max_depth - last_year_level)
+        current_pct = max(4, min(100, ((max_depth - current_level) / max_depth) * 100))
+        last_year_pct = max(4, min(100, ((max_depth - (last_year_level or current_level)) / max_depth) * 100))
+        diff = round((last_year_level or current_level) - current_level, 2)
 
-        current_pct = (curr_water_col / max_depth) * 100
-        last_year_pct = (last_water_col / max_depth) * 100
-        diff = current_level - last_year_level
-        
-        if diff > 0.1: 
+        if diff > 0.15:
             trend_dir = "risen"
             trend_icon = "trending_up"
             trend_color = "var(--success)"
-        elif diff < -0.1:
+        elif diff < -0.15:
             trend_dir = "dropped"
             trend_icon = "trending_down"
             trend_color = "var(--danger)"
@@ -193,20 +255,46 @@ def FarmerDashboard(request):
             trend_icon = "remove"
             trend_color = "var(--text-muted)"
 
+    chart_points = ""
+    chart_min = None
+    chart_max = None
+    if series:
+        depths = [p["d"] for p in series]
+        chart_min = min(depths)
+        chart_max = max(depths)
+        span = max(chart_max - chart_min, 0.2)
+        width = 320
+        height = 90
+        coords = []
+        for idx, point in enumerate(series):
+            x = 0 if len(series) == 1 else idx / (len(series) - 1) * width
+            y = height - ((point["d"] - chart_min) / span) * (height - 8) - 4
+            coords.append(f"{x:.1f},{y:.1f}")
+        chart_points = " ".join(coords)
+
     context = {
         'state': state,
         'district': district,
+        'locations': locations,
+        'locations_json': json.dumps(locations),
         'stations': all_stations,
         'active_station': active_station,
         'user_district_name': f"{district} District, {state}",
-        'current_level': current_level, 
+        'current_level': current_level,
         'last_year_level': last_year_level,
+        'latest_time': latest_time,
+        'data_source': data_source,
+        'fetch_error': fetch_error,
+        'series': series,
+        'chart_points': chart_points,
+        'chart_min': chart_min,
+        'chart_max': chart_max,
         'status_class': status_class,
         'status_text': status_text,
         'advice_text': advice_text,
-        'current_pct': min(current_pct, 100),
-        'last_year_pct': min(last_year_pct, 100),
-        'diff': round(abs(diff), 2),
+        'current_pct': current_pct,
+        'last_year_pct': last_year_pct,
+        'diff': abs(diff),
         'trend_dir': trend_dir,
         'trend_icon': trend_icon,
         'trend_color': trend_color,

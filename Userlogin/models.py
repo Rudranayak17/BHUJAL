@@ -17,6 +17,8 @@ class Profile(models.Model):
         choices=Roles.choices, 
         default=Roles.FARMER
     )
+    state = models.CharField(max_length=100, blank=True, default="")
+    district = models.CharField(max_length=100, blank=True, default="")
 
     def __str__(self):
         return f"{self.user.username} - {self.role}"
