@@ -34,8 +34,10 @@ WORKDIR /app
 # Copy source code
 COPY --chown=appuser:appuser . .
 
-# Make entrypoint executable
-RUN chmod +x /app/entrypoint.prod.sh
+# Make entrypoint executable and allow collectstatic to write here
+RUN chmod +x /app/entrypoint.prod.sh && \
+    mkdir -p /app/staticfiles && \
+    chown -R appuser:appuser /app/staticfiles
 
 USER appuser
 

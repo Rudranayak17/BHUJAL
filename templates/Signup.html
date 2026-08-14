@@ -351,13 +351,27 @@
             <div class="brand-subtitle">BHUJAL Terminal</div>
         </div>
 
-        <form method="post">
+        {% if messages %}
+        <div style="margin-bottom: 20px;">
+            {% for message in messages %}
+                <div style="padding: 10px; border-radius: 8px;
+                            margin-bottom: 8px;
+                            {% if message.tags == 'error' %}background-color:#f87171;color:white;
+                            {% elif message.tags == 'success' %}background-color:#10b981;color:white;
+                            {% else %}background-color:#3b82f6;color:white;{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <form method="post" id="signup-form">
             {% csrf_token %}
             <div class="form-group">
                 <label class="form-label">Full Name</label>
                 <div class="input-wrapper">
                     <span class="material-symbols-outlined input-icon">badge</span>
-                    <input type="text" name="username" placeholder="John Doe" required>
+                    <input type="text" name="username" placeholder="John Doe" value="{{ form_username|default:'' }}" required>
                 </div>
             </div>
 
@@ -365,7 +379,7 @@
                 <label class="form-label">Email Address</label>
                 <div class="input-wrapper">
                     <span class="material-symbols-outlined input-icon">mail</span>
-                    <input type="email" name="email" placeholder="operator@hydro-ops.net" required>
+                    <input type="email" name="email" placeholder="operator@hydro-ops.net" value="{{ form_email|default:'' }}" required>
                 </div>
             </div>
             
@@ -388,7 +402,7 @@
                 <label class="form-label">Role Assignment</label>
                 <div class="role-selector">
                     <label class="role-option">
-                        <input type="radio" name="role" value="FARMER" checked>
+                        <input type="radio" name="role" value="FARMER" {% if form_role != 'RESEARCHER' and form_role != 'ADMIN' %}checked{% endif %}>
                         <div class="role-card">
                             <span class="material-symbols-outlined">agriculture</span>
                             <span class="role-name">Farmer</span>
@@ -396,7 +410,7 @@
                     </label>
 
                     <label class="role-option">
-                        <input type="radio" name="role" value="RESEARCHER">
+                        <input type="radio" name="role" value="RESEARCHER" {% if form_role == 'RESEARCHER' %}checked{% endif %}>
                         <div class="role-card">
                             <span class="material-symbols-outlined">science</span>
                             <span class="role-name">Researcher</span>
@@ -404,7 +418,7 @@
                     </label>
 
                     <label class="role-option">
-                        <input type="radio" name="role" value="ADMIN">
+                        <input type="radio" name="role" value="ADMIN" {% if form_role == 'ADMIN' %}checked{% endif %}>
                         <div class="role-card">
                             <span class="material-symbols-outlined">admin_panel_settings</span>
                             <span class="role-name">Admin</span>
@@ -429,22 +443,8 @@
                 </div>
             </div>
 
-            <button type="submit" class="btn-submit">Initialize Registration</button>
+            <button type="submit" class="btn-submit" id="signup-submit">Initialize Registration</button>
         </form>
-        
-        {% if messages %}
-        <div style="margin-bottom: 15px;">
-            {% for message in messages %}
-                <div style="padding: 10px; border-radius: 8px; 
-                            margin-bottom: 8px; 
-                            {% if message.tags == 'error' %}background-color:#f87171;color:white;
-                            {% elif message.tags == 'success' %}background-color:#10b981;color:white;
-                            {% else %}background-color:#3b82f6;color:white;{% endif %}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        </div>
-        {% endif %}
 
         <div class="auth-footer">
             Already authorized? <a href="Login" class="auth-link">Login</a>
@@ -507,7 +507,24 @@
     stateSelect.addEventListener('change', populateDistricts);
 
     // Initialization
-    document.addEventListener('DOMContentLoaded', populateStates);
+    document.addEventListener('DOMContentLoaded', function() {
+        populateStates();
+        const presetState = "{{ form_state|default:''|escapejs }}";
+        const presetDistrict = "{{ form_district|default:''|escapejs }}";
+        if (presetState) {
+            stateSelect.value = presetState;
+            populateDistricts();
+            if (presetDistrict) {
+                districtSelect.value = presetDistrict;
+            }
+        }
+    });
+
+    document.getElementById('signup-form').addEventListener('submit', function() {
+        const btn = document.getElementById('signup-submit');
+        btn.disabled = true;
+        btn.textContent = 'Creating account...';
+    });
 </script>
 </body>
 </html>

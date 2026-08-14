@@ -2,44 +2,61 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
+from django.db import IntegrityError, transaction
 from .models import Profile
 
 # Create your views here.
 def Welcome(request):
     return render(request, 'Welcome.html')
 
+def _signup_form_context(request):
+    return {
+        'form_username': request.POST.get('username', '').strip(),
+        'form_email': request.POST.get('email', '').strip(),
+        'form_state': request.POST.get('state', ''),
+        'form_district': request.POST.get('district', ''),
+        'form_role': request.POST.get('role', 'FARMER'),
+    }
+
 def Signup(request):
     if request.method == 'POST':
-        username = request.POST['username']
-        email = request.POST['email']
-        password = request.POST['password']
-        password2 = request.POST['password2']
-        role = request.POST['role']  # Get the selected role
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('password', '')
+        password2 = request.POST.get('password2', '')
+        role = request.POST.get('role', Profile.Roles.FARMER)
+        context = _signup_form_context(request)
 
-        if password != password2: 
+        if not username or not email or not password:
+            messages.error(request, "Please fill in all required fields.")
+            return render(request, 'Signup.html', context)
+
+        if password != password2:
             messages.error(request, "Passwords do not match.")
-            return render(request, 'Signup.html')
+            return render(request, 'Signup.html', context)
 
-        elif User.objects.filter(username=username).exists():
-            messages.error(request, "Username already taken.")
-            return render(request, 'Signup.html')
+        if User.objects.filter(username__iexact=username).exists():
+            messages.error(request, "Username already taken. Try logging in instead.")
+            return render(request, 'Signup.html', context)
 
-        elif User.objects.filter(email=email).exists():
-            messages.error(request, "Email already registered.")
-            return render(request, 'Signup.html')
-        
-        else:
-            # 1. Create the User
-            user = User.objects.create_user(username=username, email=email, password=password)
-            user.save()
+        if User.objects.filter(email__iexact=email).exists():
+            messages.error(request, "Email already registered. Try logging in instead.")
+            return render(request, 'Signup.html', context)
 
-            # 2. Create the Profile with the selected role
-            Profile.objects.create(user=user, role=role)
+        try:
+            with transaction.atomic():
+                user = User.objects.create_user(
+                    username=username, email=email, password=password
+                )
+                Profile.objects.create(user=user, role=role)
+        except IntegrityError:
+            messages.error(request, "Username already taken. Try logging in instead.")
+            return render(request, 'Signup.html', context)
 
-            messages.success(request, "Account Created Successfully. Please log in.")
-            return redirect('Login')
-    else:
-        return render(request, 'Signup.html')
+        messages.success(request, "Account Created Successfully. Please log in.")
+        return redirect('Login')
+
+    return render(request, 'Signup.html')
 
 def Login(request):
     if request.method == 'POST':

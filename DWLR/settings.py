@@ -24,22 +24,57 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY") or os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "dev-only-insecure-key"
+    else:
+        raise RuntimeError("DJANGO_SECRET_KEY must be set in production")
+
 ALLOWED_HOSTS = [
-    "*",
-    "sih-production-3bc9.up.railway.app",
-    "localhost",
-    "127.0.0.1",
+    host.strip()
+    for host in os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",")
+    if host.strip()
 ]
-CSRF_TRUSTED_ORIGINS = [
-    'https://bhujal-3x43.onrender.com',
-    'https://sih-production-3bc9.up.railway.app',
-]
-# Application definitiongn
+if "localhost" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.extend(["localhost", "127.0.0.1"])
+
+
+def _csrf_trusted_origins():
+    origins = [
+        "https://bhujal-3x43.onrender.com",
+        "https://sih-production-3bc9.up.railway.app",
+    ]
+    extra = os.getenv("CSRF_TRUSTED_ORIGINS", "")
+    origins.extend(item.strip() for item in extra.split(",") if item.strip())
+
+    for key in ("RAILWAY_PUBLIC_DOMAIN", "RAILWAY_STATIC_URL"):
+        value = os.getenv(key, "").strip().rstrip("/")
+        if not value:
+            continue
+        host = value.replace("https://", "").replace("http://", "")
+        if host:
+            origins.append(f"https://{host}")
+
+    deduped = []
+    for origin in origins:
+        if origin not in deduped:
+            deduped.append(origin)
+    return deduped
+
+
+CSRF_TRUSTED_ORIGINS = _csrf_trusted_origins()
+
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+# Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -51,6 +86,7 @@ INSTALLED_APPS = [
     'Dashboard',
     'Userlogin',
     'Yeild',
+    'features',
 ]
 
 MIDDLEWARE = [
@@ -85,13 +121,12 @@ WSGI_APPLICATION = 'DWLR.wsgi.application'
 
 
 # Database
+DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
 DATABASES = {
     "default": dj_database_url.parse(
-        os.getenv(
-            "DATABASE_URL",
-            f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
-        ),
+        DATABASE_URL,
         conn_max_age=600,
+        ssl_require=DATABASE_URL.startswith("postgres") and "localhost" not in DATABASE_URL,
     )
 }
 
@@ -142,6 +177,15 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
+
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+    },
+}
 
 
 # Default primary key field type

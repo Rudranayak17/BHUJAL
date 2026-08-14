@@ -288,6 +288,20 @@
             <div class="brand-subtitle">BHUJAL Terminal</div>
         </div>
 
+        {% if messages %}
+        <div style="margin-bottom: 20px;">
+            {% for message in messages %}
+                <div style="padding: 10px; border-radius: 8px;
+                            margin-bottom: 8px;
+                            {% if message.tags == 'error' %}background-color:#f87171;color:white;
+                            {% elif message.tags == 'success' %}background-color:#10b981;color:white;
+                            {% else %}background-color:#3b82f6;color:white;{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
         <form method="post">
             {% csrf_token %}
             
