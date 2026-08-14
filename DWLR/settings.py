@@ -127,9 +127,12 @@ WSGI_APPLICATION = 'DWLR.wsgi.application'
 
 
 # Database
-# Vercel's filesystem is read-only except /tmp, so SQLite must live there
-# unless a hosted DATABASE_URL (Neon/Supabase/Vercel Postgres) is provided.
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Prefer Neon/Vercel Postgres. SQLite on Vercel is ephemeral and loses accounts.
+DATABASE_URL = (
+    os.getenv("DATABASE_URL")
+    or os.getenv("POSTGRES_PRISMA_URL")
+    or os.getenv("POSTGRES_URL")
+)
 if not DATABASE_URL:
     if ON_VERCEL:
         DATABASE_URL = "sqlite:////tmp/bhujal.sqlite3"
