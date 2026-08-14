@@ -8,6 +8,14 @@ from Dashboard.models import GroundwaterLevel, Station
 from Userlogin.models import Profile
 
 
+class FarmerAuthRedirectTests(TestCase):
+    def test_unauthenticated_farmer_redirects_to_app_login(self):
+        response = self.client.get("/Dashboard/Farmer/", follow=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn("/Login", response["Location"])
+        self.assertNotIn("/accounts/login", response["Location"])
+
+
 class FarmerDashboardTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("farmer", password="pass12345")
@@ -49,3 +57,8 @@ class FarmerDashboardTests(TestCase):
         self.assertContains(response, "Tadipatri-pz_1")
         self.assertContains(response, "India-WRIS")
         self.assertContains(response, "Caution Required")
+        self.assertContains(response, "Andhra Pradesh")
+        self.assertContains(response, "Anantapur")
+        self.assertContains(response, "Chittoor")
+        self.assertContains(response, "-- Select State --")
+        self.assertContains(response, "-- Select District --")

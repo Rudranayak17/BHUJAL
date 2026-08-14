@@ -206,3 +206,7 @@ STORAGES = {
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGIN_URL = '/Login'
+LOGIN_REDIRECT_URL = '/Dashboard/Farmer/'
+LOGOUT_REDIRECT_URL = '/'

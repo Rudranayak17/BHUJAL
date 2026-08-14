@@ -15,24 +15,14 @@ from plotly.utils import PlotlyJSONEncoder
 from .forms import GroundWaterForm
 from .models import Station, GroundwaterLevel, DistrictLog
 from Userlogin.models import Profile
+from Dashboard.locations import STATE_DISTRICTS
 from Dashboard.services.wris_service import (
     get_groundwater_data,
     get_stations_for_location,
     depth_below_ground,
 )
 
-FARMER_LOCATIONS = {
-    "Andhra Pradesh": ["Anantapur", "Chittoor", "East Godavari"],
-    "Chhattisgarh": ["Raipur", "Durg", "Bilaspur"],
-    "Gujarat": ["Ahmedabad", "Surat", "Vadodara", "Rajkot"],
-    "Karnataka": ["Bangalore Urban", "Mysuru", "Belagavi"],
-    "Madhya Pradesh": ["Bhopal", "Indore", "Jabalpur", "Gwalior", "Sagar"],
-    "Maharashtra": ["Pune", "Nagpur", "Nashik", "Aurangabad"],
-    "Odisha": ["Baleshwar", "Khordha", "Cuttack"],
-    "Rajasthan": ["Jaipur", "Jodhpur", "Udaipur"],
-    "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai"],
-    "Uttar Pradesh": ["Lucknow", "Varanasi", "Agra"],
-}
+FARMER_LOCATIONS = STATE_DISTRICTS
 
 
 def _downsample_series(points, limit=48):
@@ -123,7 +113,7 @@ def api_stations(request):
     return JsonResponse({'stations': stations})
 
 
-@login_required
+@login_required(login_url='Login')
 def FarmerDashboard(request):
     state = request.GET.get('state', '').strip()
     district = request.GET.get('district', '').strip()

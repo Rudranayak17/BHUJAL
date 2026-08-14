@@ -6,6 +6,18 @@
       "entrypoint": "DWLR.wsgi:application"
     }
   },
+  "redirects": [
+    {
+      "source": "/accounts/login",
+      "destination": "/Login",
+      "permanent": false
+    },
+    {
+      "source": "/accounts/login/",
+      "destination": "/Login",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
