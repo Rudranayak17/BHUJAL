@@ -3,6 +3,7 @@ import csv
 from collections import defaultdict
 from datetime import datetime, timedelta
 
+from django.conf import settings
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
@@ -165,23 +166,29 @@ def FarmerDashboard(request):
     trend_icon = "horizontal_rule"
     trend_color = "var(--text-muted)"
 
-    try:
-        get_stations_for_location(state, district)
-    except Exception as exc:
-        fetch_error = str(exc)
+    if not getattr(settings, "ON_VERCEL", False):
+        try:
+            get_stations_for_location(state, district)
+        except Exception as exc:
+            fetch_error = str(exc)
+    else:
+        fetch_error = "vercel-browser-fetch"
 
     all_stations = Station.objects.filter(
         state__iexact=state, district__iexact=district
     ).order_by("station_name")
 
     selected_id = request.GET.get('station_id')
+    selected_name = request.GET.get('station', '').strip()
     active_station = None
     if selected_id:
         active_station = all_stations.filter(id=selected_id).first()
+    if not active_station and selected_name:
+        active_station = all_stations.filter(station_name__iexact=selected_name).first()
     if not active_station and all_stations.exists():
         active_station = all_stations.first()
 
-    if active_station:
+    if active_station and not getattr(settings, "ON_VERCEL", False):
         end_date = datetime.now().date()
         start_date = end_date - timedelta(days=180)
         try:
@@ -298,6 +305,8 @@ def FarmerDashboard(request):
         'trend_dir': trend_dir,
         'trend_icon': trend_icon,
         'trend_color': trend_color,
+        'has_server_data': current_level is not None,
+        'requested_station': selected_name or (active_station.station_name if active_station else ''),
     }
     return render(request, 'Farmer.html', context)
 

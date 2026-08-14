@@ -213,7 +213,7 @@
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; margin-left: 5px;">
                 Select Monitoring Station:
             </p>
-            <div class="station-scroller">
+            <div class="station-scroller" id="stationScroller">
                 {% if stations %}
                     {% for station in stations %}
                         <a href="?state={{ state }}&district={{ district }}&station_id={{ station.id }}" 
@@ -223,19 +223,19 @@
                         </a>
                     {% endfor %}
                 {% else %}
-                    <div class="station-chip">No stations found in {{ user_district_name }}</div>
+                    <div class="station-chip" id="stationPlaceholder">Loading India-WRIS stations…</div>
                 {% endif %}
             </div>
         </div>
 
-        <div class="status-hero {{ status_class }} animate-in" style="animation-delay: 0.1s;">
+        <div class="status-hero {{ status_class }} animate-in" id="statusHero" style="animation-delay: 0.1s;">
             <div class="status-icon-wrapper">
                 <span class="material-symbols-outlined" style="font-size: 40px;">water_drop</span>
             </div>
             
-            <div class="status-label">{{ status_text }}</div>
+            <div class="status-label" id="statusText">{{ status_text }}</div>
             
-            <div class="big-reading">
+            <div class="big-reading" id="bigReading">
                 {% if current_level is not None %}
                     {{ current_level|floatformat:1 }} m
                 {% else %}
@@ -244,22 +244,20 @@
             </div>
             
             <p style="font-size: 0.85rem; opacity: 0.8;">Groundwater depth below ground (India-WRIS / CGWB)</p>
-            {% if active_station %}
-            <div class="meta-row">
+            <div class="meta-row" id="metaRow">
+                {% if active_station %}
                 <span class="meta-pill">{{ active_station.station_name }}</span>
                 {% if active_station.station_code %}<span class="meta-pill">{{ active_station.station_code }}</span>{% endif %}
                 {% if active_station.aquifer_system %}<span class="meta-pill">{{ active_station.aquifer_system }}</span>{% endif %}
                 {% if latest_time %}<span class="meta-pill">{{ latest_time|date:"d M Y, H:i" }}</span>{% endif %}
                 {% if data_source %}<span class="meta-pill">{{ data_source|title }} feed</span>{% endif %}
+                {% endif %}
             </div>
-            {% endif %}
             
-            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.9rem;">
+            <div id="adviceText" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.9rem;">
                 {{ advice_text }}
             </div>
-            {% if fetch_error %}
-            <p class="source-note">Could not refresh live WRIS data: {{ fetch_error }}</p>
-            {% endif %}
+            <p class="source-note" id="fetchNote">{% if fetch_error %}Server could not reach India-WRIS. Loading live readings in your browser…{% endif %}</p>
         </div>
 
         <div class="panel animate-in" style="animation-delay: 0.2s;">
@@ -267,7 +265,7 @@
                 <span class="material-symbols-outlined">history</span>
                 Seasonal Comparison
             </div>
-            <div class="panel-body">
+            <div class="panel-body" id="compareBody">
                         {% if current_level is not None %}
                             <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">
                                 Comparing depth below ground now vs. the same period last year. A shorter bar means a deeper water table.
@@ -276,24 +274,24 @@
                             <div class="bar-chart-row">
             <div class="bar-label">
                 <span>Last Year</span>
-                <span>{{ last_year_level|default:0|floatformat:1 }} m</span>
+                <span id="lastYearValue">{{ last_year_level|default:0|floatformat:1 }} m</span>
             </div>
             <div class="bar-track">
-                <div class="bar-fill fill-prev" style="width: {{ last_year_pct|default:0|floatformat:0 }}%; min-width: 4px;"></div>
+                <div class="bar-fill fill-prev" id="lastYearBar" style="width: {{ last_year_pct|default:0|floatformat:0 }}%; min-width: 4px;"></div>
             </div>
         </div>
 
         <div class="bar-chart-row">
             <div class="bar-label">
                 <span class="text-accent">Today</span>
-                <span class="text-accent">{{ current_level|default:0|floatformat:1 }} m</span>
+                <span class="text-accent" id="todayValue">{{ current_level|default:0|floatformat:1 }} m</span>
             </div>
             <div class="bar-track">
-                <div class="bar-fill fill-curr" style="width: {{ current_pct|default:0|floatformat:0 }}%; min-width: 4px;"></div>
+                <div class="bar-fill fill-curr" id="todayBar" style="width: {{ current_pct|default:0|floatformat:0 }}%; min-width: 4px;"></div>
             </div>
         </div>
 
-                    <div style="margin-top: 15px; font-size: 0.85rem; color: {{ trend_color }}; display: flex; align-items: center; gap: 6px;">
+                    <div id="trendRow" style="margin-top: 15px; font-size: 0.85rem; color: {{ trend_color }}; display: flex; align-items: center; gap: 6px;">
                         <span class="material-symbols-outlined" style="font-size: 1.1rem;">{{ trend_icon }}</span>
                         <div>
                             Water level has {{ trend_dir }} 
@@ -304,15 +302,14 @@
                         </div>
                     </div>
                 {% else %}
-                    <p class="empty-note">
-                        No groundwater readings yet for this station. Try another district or station.
+                    <p class="empty-note" id="compareEmpty">
+                        Fetching groundwater readings from India-WRIS…
                     </p>
                 {% endif %}
             </div>
         </div>
 
-        {% if series %}
-        <div class="panel animate-in" style="animation-delay: 0.25s;">
+        <div class="panel animate-in" id="chartPanel" style="animation-delay: 0.25s; {% if not series %}display:none;{% endif %}">
             <div class="panel-header">
                 <span class="material-symbols-outlined">show_chart</span>
                 Recent WRIS readings
@@ -320,17 +317,16 @@
             <div class="panel-body">
                 <div class="chart-wrap">
                     <svg class="chart-svg" viewBox="0 0 320 90" preserveAspectRatio="none">
-                        <polyline fill="none" stroke="#3b82f6" stroke-width="2.5" points="{{ chart_points }}"></polyline>
+                        <polyline id="chartLine" fill="none" stroke="#3b82f6" stroke-width="2.5" points="{{ chart_points }}"></polyline>
                     </svg>
                 </div>
                 <div class="bar-label">
-                    <span>{{ series.0.label }}</span>
-                    <span>{{ chart_min|floatformat:1 }}–{{ chart_max|floatformat:1 }} m bgl</span>
+                    <span id="chartStart">{% if series %}{{ series.0.label }}{% endif %}</span>
+                    <span id="chartRange">{% if chart_min is not None %}{{ chart_min|floatformat:1 }}–{{ chart_max|floatformat:1 }} m bgl{% endif %}</span>
                 </div>
                 <p class="source-note">Source: India-WRIS Data API (Admin Hierarchy) · agency CGWB. Depth shown as metres below ground.</p>
             </div>
         </div>
-        {% endif %}
 
         <div class="panel animate-in" style="animation-delay: 0.3s;">
             <div class="panel-header">
@@ -387,6 +383,172 @@
         document.getElementById('farmerLocForm').submit();
     });
     fillDistricts();
+
+    const INITIAL_STATION = "{{ requested_station|default:''|escapejs }}";
+    const HAS_SERVER_DATA = {{ has_server_data|yesno:"true,false" }};
+
+    function depthBgl(value) {
+        const n = Number(value);
+        return Number.isFinite(n) ? Math.abs(n) : null;
+    }
+
+    function classify(depth) {
+        if (depth == null) return { cls: 'caution', text: 'No Data', advice: 'No India-WRIS reading for this station yet.' };
+        if (depth < 8) return { cls: 'safe', text: 'Water Level Safe', advice: 'Groundwater is relatively shallow. Standard irrigation is fine.' };
+        if (depth < 15) return { cls: 'caution', text: 'Caution Required', advice: 'Water is deeper than usual. Limit pump use and prefer drip or evening watering.' };
+        return { cls: 'critical', text: 'Critical Drop', advice: 'Water table is very deep. Use drip irrigation only and avoid long pumping.' };
+    }
+
+    function dayKey(iso) {
+        return (iso || '').slice(0, 10);
+    }
+
+    function formatStamp(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return iso;
+        return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function renderChart(points) {
+        const panel = document.getElementById('chartPanel');
+        const line = document.getElementById('chartLine');
+        if (!points.length) {
+            panel.style.display = 'none';
+            return;
+        }
+        const depths = points.map(p => p.d);
+        const min = Math.min.apply(null, depths);
+        const max = Math.max.apply(null, depths);
+        const span = Math.max(max - min, 0.2);
+        const coords = points.map(function(p, idx) {
+            const x = points.length === 1 ? 0 : idx / (points.length - 1) * 320;
+            const y = 90 - ((p.d - min) / span) * 82 - 4;
+            return x.toFixed(1) + ',' + y.toFixed(1);
+        });
+        line.setAttribute('points', coords.join(' '));
+        document.getElementById('chartStart').textContent = points[0].label;
+        document.getElementById('chartRange').textContent = min.toFixed(1) + '–' + max.toFixed(1) + ' m bgl';
+        panel.style.display = '';
+    }
+
+    function renderStation(stationName, grouped) {
+        const rows = grouped[stationName] || [];
+        if (!rows.length) return;
+        const latest = rows[rows.length - 1];
+        const current = depthBgl(latest.dataValue);
+        const latestDate = new Date(latest.dataTime);
+        const target = new Date(latestDate.getTime() - 365 * 24 * 3600 * 1000);
+        let past = null;
+        let best = Infinity;
+        rows.forEach(function(row) {
+            const dt = new Date(row.dataTime);
+            const delta = Math.abs(dt - target);
+            if (delta < 20 * 24 * 3600 * 1000 && delta < best) {
+                best = delta;
+                past = row;
+            }
+        });
+        const lastYear = past ? depthBgl(past.dataValue) : current;
+        const info = classify(current);
+        const hero = document.getElementById('statusHero');
+        hero.classList.remove('safe', 'caution', 'critical');
+        hero.classList.add(info.cls);
+        document.getElementById('statusText').textContent = info.text;
+        document.getElementById('bigReading').textContent = current == null ? '--.-' : current.toFixed(1) + ' m';
+        document.getElementById('adviceText').textContent = info.advice;
+        document.getElementById('metaRow').innerHTML = [
+            stationName,
+            latest.stationCode,
+            latest.wellAquiferType,
+            formatStamp(latest.dataTime),
+            'India-WRIS live'
+        ].filter(Boolean).map(function(text) {
+            return '<span class="meta-pill">' + text + '</span>';
+        }).join('');
+
+        const maxDepth = 25;
+        const todayPct = Math.max(4, Math.min(100, ((maxDepth - current) / maxDepth) * 100));
+        const lastPct = Math.max(4, Math.min(100, ((maxDepth - lastYear) / maxDepth) * 100));
+        const diff = (lastYear - current);
+        document.getElementById('compareBody').innerHTML =
+            '<p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">Comparing depth below ground now vs. the same period last year. A shorter bar means a deeper water table.</p>' +
+            '<div class="bar-chart-row"><div class="bar-label"><span>Last Year</span><span>' + lastYear.toFixed(1) + ' m</span></div><div class="bar-track"><div class="bar-fill fill-prev" style="width:' + lastPct.toFixed(0) + '%;min-width:4px;"></div></div></div>' +
+            '<div class="bar-chart-row"><div class="bar-label"><span class="text-accent">Today</span><span class="text-accent">' + current.toFixed(1) + ' m</span></div><div class="bar-track"><div class="bar-fill fill-curr" style="width:' + todayPct.toFixed(0) + '%;min-width:4px;"></div></div></div>' +
+            '<div style="margin-top:15px;font-size:0.85rem;color:' + (diff > 0.15 ? 'var(--success)' : diff < -0.15 ? 'var(--danger)' : 'var(--text-muted)') + ';display:flex;align-items:center;gap:6px;">' +
+            '<span class="material-symbols-outlined" style="font-size:1.1rem;">' + (diff > 0.15 ? 'trending_up' : diff < -0.15 ? 'trending_down' : 'remove') + '</span>' +
+            '<div>Water level has ' + (diff > 0.15 ? 'risen' : diff < -0.15 ? 'dropped' : 'remained stable') +
+            (Math.abs(diff) > 0.15 ? ' <strong>' + Math.abs(diff).toFixed(2) + 'm</strong>' : '') +
+            ' since last year.</div></div>';
+
+        const byDay = {};
+        rows.forEach(function(row) {
+            const key = dayKey(row.dataTime);
+            byDay[key] = {
+                t: key,
+                label: new Date(row.dataTime).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+                d: depthBgl(row.dataValue)
+            };
+        });
+        const series = Object.keys(byDay).sort().map(function(k) { return byDay[k]; });
+        const step = Math.max(1, Math.floor(series.length / 48));
+        renderChart(series.filter(function(_, i) { return i % step === 0 || i === series.length - 1; }));
+    }
+
+    async function loadWrisInBrowser() {
+        const note = document.getElementById('fetchNote');
+        note.textContent = 'Loading live India-WRIS groundwater levels…';
+        const end = new Date();
+        const start = new Date(end.getTime() - 180 * 24 * 3600 * 1000);
+        const iso = function(d) { return d.toISOString().slice(0, 10); };
+        const params = new URLSearchParams({
+            stateName: CURRENT_STATE,
+            districtName: CURRENT_DISTRICT,
+            agencyName: 'CGWB',
+            startdate: iso(start),
+            enddate: iso(end),
+            download: 'false',
+            page: '0',
+            size: '400'
+        });
+        try {
+            const res = await fetch('https://indiawris.gov.in/Dataset/Ground%20Water%20Level?' + params.toString(), {
+                method: 'POST',
+                headers: { 'accept': 'application/json' },
+                credentials: 'omit'
+            });
+            if (!res.ok) throw new Error('India-WRIS HTTP ' + res.status);
+            const payload = await res.json();
+            const data = Array.isArray(payload.data) ? payload.data : [];
+            if (!data.length) throw new Error(payload.message || 'No records returned');
+
+            const grouped = {};
+            data.forEach(function(item) {
+                if (!item.stationName || item.dataValue == null || !item.dataTime) return;
+                const name = item.stationName.trim();
+                grouped[name] = grouped[name] || [];
+                grouped[name].push(item);
+            });
+            Object.keys(grouped).forEach(function(name) {
+                grouped[name].sort(function(a, b) { return new Date(a.dataTime) - new Date(b.dataTime); });
+            });
+            const names = Object.keys(grouped).sort();
+            if (!names.length) throw new Error('No station readings in this district');
+
+            const scroller = document.getElementById('stationScroller');
+            const wanted = names.includes(INITIAL_STATION) ? INITIAL_STATION : names[0];
+            scroller.innerHTML = names.map(function(name) {
+                const href = '?state=' + encodeURIComponent(CURRENT_STATE) + '&district=' + encodeURIComponent(CURRENT_DISTRICT) + '&station=' + encodeURIComponent(name);
+                return '<a href="' + href + '" class="station-chip' + (name === wanted ? ' active' : '') + '">' + name + '</a>';
+            }).join('');
+            renderStation(wanted, grouped);
+            note.textContent = 'Live from India-WRIS getGroundWaterLevel · CGWB · ' + data.length + ' readings loaded.';
+        } catch (err) {
+            note.textContent = 'Could not load India-WRIS in the browser: ' + err.message;
+        }
+    }
+
+    loadWrisInBrowser();
 </script>
 </body>
 </html>
