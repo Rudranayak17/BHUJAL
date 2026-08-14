@@ -6,9 +6,13 @@ from django.utils import timezone
 from django.db import close_old_connections
 from Dashboard.models import Station, GroundwaterLevel, DistrictLog
 
-INDIA_WRIS_URL = "https://indiawris.gov.in/Dataset/Ground Water Level"
+INDIA_WRIS_URL = "https://indiawris.gov.in/Dataset/Ground%20Water%20Level"
 WRIS_PAGE_SIZE = 1000  # India-WRIS swagger max for getGroundWaterLevel
 WRIS_AGENCY = "CGWB"
+WRIS_HEADERS = {
+    "accept": "application/json",
+    "User-Agent": "Bhujal/1.0 (+https://bhujal-psi.vercel.app)",
+}
 
 def create_wris_session():
     session = requests.Session()
@@ -60,7 +64,7 @@ def fetch_live_wris_data(state, district, start_date_str, end_date_str, station_
         for s in Station.objects.filter(state__iexact=state_clean, district__iexact=district_clean)
     }
 
-    headers = {'accept': 'application/json'}
+    last_error = None
 
     while True:
         close_old_connections()
@@ -78,16 +82,18 @@ def fetch_live_wris_data(state, district, start_date_str, end_date_str, station_
                     "page": page,
                     "size": batch_size,
                 },
-                headers=headers,
+                headers=WRIS_HEADERS,
                 timeout=40,
             )
             if resp.status_code != 200:
-                print(f"[WRIS Service] HTTP {resp.status_code} for {state_clean}/{district_clean}")
+                last_error = f"India-WRIS HTTP {resp.status_code}"
+                print(f"[WRIS Service] {last_error} for {state_clean}/{district_clean}")
                 break
 
             payload = resp.json()
             if payload.get("statusCode") not in (None, 200):
-                print(f"[WRIS Service] API message: {payload.get('message')}")
+                last_error = payload.get("message") or f"India-WRIS status {payload.get('statusCode')}"
+                print(f"[WRIS Service] API message: {last_error}")
                 break
 
             data = payload.get("data") or []
@@ -195,9 +201,12 @@ def fetch_live_wris_data(state, district, start_date_str, end_date_str, station_
                 break
 
         except Exception as e:
+            last_error = str(e)
             print(f"[WRIS Service] Network/parsing exception: {e}")
             break
 
+    if total_fetched == 0 and last_error:
+        raise RuntimeError(last_error)
     return total_fetched
 
 
@@ -273,7 +282,7 @@ def get_stations_for_location(state, district):
     if not stations.exists():
         end_str = datetime.now().strftime("%Y-%m-%d")
         start_str = (datetime.now() - timedelta(days=180)).strftime("%Y-%m-%d")
-        fetch_live_wris_data(state_clean, district_clean, start_str, end_str, max_pages=6)
+        fetch_live_wris_data(state_clean, district_clean, start_str, end_str, max_pages=3)
         stations = Station.objects.filter(state__iexact=state_clean, district__iexact=district_clean).order_by("station_name")
 
     return list(stations.values("id", "station_name", "station_code", "latitude", "longitude", "aquifer_system"))

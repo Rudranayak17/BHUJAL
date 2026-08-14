@@ -183,12 +183,12 @@ def FarmerDashboard(request):
 
     if active_station:
         end_date = datetime.now().date()
-        start_date = end_date - timedelta(days=400)
+        start_date = end_date - timedelta(days=180)
         try:
             records, metadata = get_groundwater_data(
                 state, district, start_date, end_date,
                 station_name=active_station.station_name,
-                max_pages=8,
+                max_pages=4,
             )
             data_source = metadata.get("source")
         except Exception as exc:
