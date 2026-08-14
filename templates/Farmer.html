@@ -175,9 +175,68 @@
             color: white;
             box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }
+
+        .show-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            border: none;
+        }
+        .show-btn:disabled { opacity: 0.7; cursor: wait; }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.25);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            flex-shrink: 0;
+        }
+        .spinner.dark {
+            border-color: rgba(96,165,250,0.25);
+            border-top-color: #60a5fa;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @keyframes shimmer {
+            0% { background-position: -420px 0; }
+            100% { background-position: 420px 0; }
+        }
+        .skeleton {
+            background: linear-gradient(90deg, #1c2028 0%, #2a303a 45%, #1c2028 90%);
+            background-size: 840px 100%;
+            animation: shimmer 1.25s infinite linear;
+            border-radius: 8px;
+        }
+        .skel-chip { height: 34px; width: 92px; border-radius: 20px; flex-shrink: 0; }
+        .skel-circle { width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 16px; }
+        .skel-line { height: 14px; margin: 10px auto; }
+        .skel-bar { height: 12px; border-radius: 6px; margin: 8px 0 18px; }
+
+        .fetch-banner {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            background: rgba(59, 130, 246, 0.12);
+            border: 1px solid rgba(59, 130, 246, 0.35);
+            color: #93c5fd;
+            padding: 10px 14px;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            font-size: 0.85rem;
+        }
+        body.is-fetching .fetch-banner,
+        body.is-refreshing .fetch-banner { display: flex; }
+        #resultsSkeleton { display: none; }
+        body.is-fetching #resultsLive { display: none; }
+        body.is-fetching #resultsSkeleton { display: block; }
+        body.is-fetching select,
+        body.is-fetching .show-btn { pointer-events: none; }
     </style>
 </head>
-<body>
+<body{% if not has_server_data %} class="is-fetching"{% endif %}>
 
     <nav class="navbar">
         <div class="brand">
@@ -215,10 +274,49 @@
                         {% endif %}
                     {% endfor %}
                 </select>
-                <button type="submit" class="station-chip active" style="cursor:pointer; border:none;">Show</button>
+                <button type="submit" class="station-chip active show-btn" id="showBtn">
+                    <span class="spinner" id="showSpinner" style="display:none;"></span>
+                    <span id="showLabel">Show</span>
+                </button>
             </form>
         </div>
 
+        <div class="fetch-banner" id="fetchBanner">
+            <span class="spinner dark"></span>
+            <span id="fetchBannerText">Fetching groundwater data for the selected state and district…</span>
+        </div>
+
+        <div id="resultsSkeleton">
+            <div class="station-scroller" style="margin-bottom: 20px;">
+                <div class="skeleton skel-chip"></div>
+                <div class="skeleton skel-chip" style="width:110px;"></div>
+                <div class="skeleton skel-chip" style="width:76px;"></div>
+                <div class="skeleton skel-chip" style="width:98px;"></div>
+            </div>
+            <div class="status-hero caution">
+                <div class="skeleton skel-circle"></div>
+                <div class="skeleton skel-line" style="width:46%;"></div>
+                <div class="skeleton skel-line" style="width:28%; height:28px;"></div>
+                <div class="skeleton skel-line" style="width:70%;"></div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">Seasonal Comparison</div>
+                <div class="panel-body">
+                    <div class="skeleton skel-line" style="width:40%; margin-left:0;"></div>
+                    <div class="skeleton skel-bar"></div>
+                    <div class="skeleton skel-line" style="width:30%; margin-left:0;"></div>
+                    <div class="skeleton skel-bar"></div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-header">Recent WRIS readings</div>
+                <div class="panel-body">
+                    <div class="skeleton" style="height:110px; width:100%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultsLive">
         <div style="margin-bottom: 10px;">
             <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; margin-left: 5px;">
                 Select Monitoring Station:
@@ -337,6 +435,7 @@
                 <p class="source-note">Source: India-WRIS Data API (Admin Hierarchy) · agency CGWB. Depth shown as metres below ground.</p>
             </div>
         </div>
+        </div>
 
         <div class="panel animate-in" style="animation-delay: 0.3s;">
             <div class="panel-header">
@@ -390,9 +489,32 @@
         fillDistricts('');
         districtSelect.focus();
     });
+    const locForm = document.getElementById('farmerLocForm');
+    const showBtn = document.getElementById('showBtn');
+    const showSpinner = document.getElementById('showSpinner');
+    const showLabel = document.getElementById('showLabel');
+
+    function setFetching(on, message) {
+        const bannerText = document.getElementById('fetchBannerText');
+        if (bannerText && message) bannerText.textContent = message;
+        document.body.classList.toggle('is-fetching', on);
+        document.body.classList.toggle('is-refreshing', false);
+        if (showBtn) showBtn.disabled = on;
+        if (showSpinner) showSpinner.style.display = on ? 'inline-block' : 'none';
+        if (showLabel) showLabel.textContent = on ? 'Fetching…' : 'Show';
+        if (stateSelect) stateSelect.disabled = on;
+        if (districtSelect) districtSelect.disabled = on || !stateSelect.value;
+    }
+
     districtSelect.addEventListener('change', function() {
         if (stateSelect.value && districtSelect.value) {
-            document.getElementById('farmerLocForm').submit();
+            setFetching(true, 'Fetching groundwater data for ' + districtSelect.value + ', ' + stateSelect.value + '…');
+            locForm.submit();
+        }
+    });
+    locForm.addEventListener('submit', function() {
+        if (stateSelect.value && districtSelect.value) {
+            setFetching(true, 'Fetching groundwater data for ' + districtSelect.value + ', ' + stateSelect.value + '…');
         }
     });
     fillDistricts(CURRENT_DISTRICT);
@@ -510,6 +632,13 @@
 
     async function loadWrisInBrowser() {
         const note = document.getElementById('fetchNote');
+        const place = (CURRENT_DISTRICT || 'the selected district') + (CURRENT_STATE ? ', ' + CURRENT_STATE : '');
+        if (!HAS_SERVER_DATA) {
+            setFetching(true, 'Fetching groundwater data for ' + place + '…');
+        } else {
+            document.body.classList.add('is-refreshing');
+            document.getElementById('fetchBannerText').textContent = 'Refreshing live readings for ' + place + '…';
+        }
         note.textContent = 'Loading live India-WRIS groundwater levels…';
         const end = new Date();
         const start = new Date(end.getTime() - 180 * 24 * 3600 * 1000);
@@ -556,8 +685,14 @@
             }).join('');
             renderStation(wanted, grouped);
             note.textContent = 'Live from India-WRIS getGroundWaterLevel · CGWB · ' + data.length + ' readings loaded.';
+            setFetching(false);
+            document.body.classList.remove('is-refreshing');
         } catch (err) {
             note.textContent = 'Could not load India-WRIS in the browser: ' + err.message;
+            setFetching(false);
+            document.body.classList.remove('is-refreshing');
+            const empty = document.getElementById('compareEmpty');
+            if (empty) empty.textContent = 'Could not load readings. Try another district.';
         }
     }
 

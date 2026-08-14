@@ -62,3 +62,5 @@ class FarmerDashboardTests(TestCase):
         self.assertContains(response, "Chittoor")
         self.assertContains(response, "-- Select State --")
         self.assertContains(response, "-- Select District --")
+        self.assertContains(response, "resultsSkeleton")
+        self.assertContains(response, "Fetching groundwater data")
