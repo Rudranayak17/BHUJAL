@@ -259,14 +259,12 @@
             </div>
             
             <form method="get" id="farmerLocForm" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                <input type="search" id="stateSearch" placeholder="Search state" autocomplete="off" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem; width:130px;">
                 <select name="state" id="fState" aria-label="State" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem; min-width:160px;">
                     <option value="">-- Select State --</option>
                     {% for loc_state in locations.keys %}
                         <option value="{{ loc_state }}" {% if state == loc_state %}selected{% endif %}>{{ loc_state }}</option>
                     {% endfor %}
                 </select>
-                <input type="search" id="districtSearch" placeholder="Search district" autocomplete="off" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem; width:130px;">
                 <select name="district" id="fDistrict" aria-label="District" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem; min-width:160px;">
                     <option value="">-- Select District --</option>
                     {% for loc_state, loc_districts in locations.items %}
@@ -479,8 +477,6 @@
     const showBtn = document.getElementById('showBtn');
     const showSpinner = document.getElementById('showSpinner');
     const showLabel = document.getElementById('showLabel');
-    const stateSearch = document.getElementById('stateSearch');
-    const districtSearch = document.getElementById('districtSearch');
     let activeState = CURRENT_STATE;
     let activeDistrict = CURRENT_DISTRICT;
     let lastGrouped = {};
@@ -546,7 +542,6 @@
     }
 
     stateSelect.addEventListener('change', function() {
-        if (districtSearch) districtSearch.value = '';
         fillDistricts('');
         districtSelect.focus();
     });
@@ -561,17 +556,6 @@
             searchSelectedLocation();
         }
     });
-    if (stateSearch) {
-        stateSearch.addEventListener('input', function() {
-            renderStateOptions(stateSearch.value, selectedState());
-            fillDistricts(selectedDistrict(), districtSearch ? districtSearch.value : '');
-        });
-    }
-    if (districtSearch) {
-        districtSearch.addEventListener('input', function() {
-            fillDistricts(selectedDistrict(), districtSearch.value);
-        });
-    }
     renderStateOptions('', CURRENT_STATE);
     fillDistricts(CURRENT_DISTRICT);
 
