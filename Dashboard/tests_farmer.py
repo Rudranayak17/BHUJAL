@@ -16,6 +16,32 @@ class FarmerAuthRedirectTests(TestCase):
         self.assertNotIn("/accounts/login", response["Location"])
 
 
+class FarmerLocationFilterTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user("locator", password="pass12345")
+        Profile.objects.create(
+            user=self.user,
+            role="FARMER",
+            state="Andhra Pradesh",
+            district="Anantapur",
+        )
+        self.client.login(username="locator", password="pass12345")
+
+    def test_haryana_query_does_not_fall_back_to_anantapur(self):
+        response = self.client.get(
+            "/Dashboard/Farmer/",
+            {"state": "Haryana", "district": "Hisar"},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Hisar")
+        self.assertContains(response, "Haryana")
+        self.assertNotContains(response, "Hisar District, Andhra Pradesh")
+        html = response.content.decode()
+        self.assertIn('CURRENT_STATE = "Haryana"', html)
+        self.assertIn('CURRENT_DISTRICT = "Hisar"', html)
+        self.assertNotIn('CURRENT_STATE = "Andhra Pradesh"', html)
+
+
 class FarmerDashboardTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user("farmer", password="pass12345")

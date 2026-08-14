@@ -162,6 +162,7 @@
             white-space: nowrap;
             text-decoration: none;
             transition: all 0.2s ease;
+            font-family: inherit;
         }
 
         .station-chip:hover {
@@ -253,17 +254,19 @@
                 <h2 style="font-weight: 500;">Hello, {{ user.first_name|default:"Farmer" }}</h2>
                 <p style="color: var(--text-muted); font-size: 0.9rem;">
                     <span class="material-symbols-outlined" style="font-size:1em; vertical-align:text-bottom;">location_on</span>
-                    {{ user_district_name }}
+                    <span id="locationLabel">{{ user_district_name }}</span>
                 </p>
             </div>
             
             <form method="get" id="farmerLocForm" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                <input type="search" id="stateSearch" placeholder="Search state" autocomplete="off" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem; width:130px;">
                 <select name="state" id="fState" aria-label="State" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem; min-width:160px;">
                     <option value="">-- Select State --</option>
                     {% for loc_state in locations.keys %}
                         <option value="{{ loc_state }}" {% if state == loc_state %}selected{% endif %}>{{ loc_state }}</option>
                     {% endfor %}
                 </select>
+                <input type="search" id="districtSearch" placeholder="Search district" autocomplete="off" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem; width:130px;">
                 <select name="district" id="fDistrict" aria-label="District" style="background:var(--bg-panel); border:1px solid var(--border); color:var(--text-main); padding:6px 10px; border-radius:8px; font-size:0.85rem; min-width:160px;">
                     <option value="">-- Select District --</option>
                     {% for loc_state, loc_districts in locations.items %}
@@ -472,27 +475,51 @@
     const stateSelect = document.getElementById('fState');
     const districtSelect = document.getElementById('fDistrict');
 
-    function fillDistricts(preferred) {
-        const districts = (LOCATIONS[stateSelect.value] || []).slice().sort();
-        districtSelect.innerHTML = '<option value="">-- Select District --</option>';
-        districts.forEach(function(name) {
-            const opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
-            if (name === preferred) opt.selected = true;
-            districtSelect.appendChild(opt);
-        });
-        districtSelect.disabled = !stateSelect.value;
-    }
-
-    stateSelect.addEventListener('change', function() {
-        fillDistricts('');
-        districtSelect.focus();
-    });
     const locForm = document.getElementById('farmerLocForm');
     const showBtn = document.getElementById('showBtn');
     const showSpinner = document.getElementById('showSpinner');
     const showLabel = document.getElementById('showLabel');
+    const stateSearch = document.getElementById('stateSearch');
+    const districtSearch = document.getElementById('districtSearch');
+    let activeState = CURRENT_STATE;
+    let activeDistrict = CURRENT_DISTRICT;
+    let lastGrouped = {};
+
+    function selectedState() {
+        return (stateSelect.value || '').trim();
+    }
+    function selectedDistrict() {
+        return (districtSelect.value || '').trim();
+    }
+
+    function renderStateOptions(filter, preferred) {
+        const q = (filter || '').toLowerCase();
+        const keep = preferred || selectedState() || CURRENT_STATE;
+        stateSelect.innerHTML = '<option value="">-- Select State --</option>';
+        Object.keys(LOCATIONS).sort().forEach(function(name) {
+            if (q && name.toLowerCase().indexOf(q) === -1) return;
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            if (name === keep) opt.selected = true;
+            stateSelect.appendChild(opt);
+        });
+    }
+
+    function fillDistricts(preferred, filter) {
+        const q = (filter || '').toLowerCase();
+        const districts = (LOCATIONS[selectedState()] || []).slice().sort();
+        const keep = preferred || '';
+        districtSelect.innerHTML = '<option value="">-- Select District --</option>';
+        districts.forEach(function(name) {
+            if (q && name.toLowerCase().indexOf(q) === -1) return;
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            if (name === keep) opt.selected = true;
+            districtSelect.appendChild(opt);
+        });
+    }
 
     function setFetching(on, message) {
         const bannerText = document.getElementById('fetchBannerText');
@@ -502,21 +529,50 @@
         if (showBtn) showBtn.disabled = on;
         if (showSpinner) showSpinner.style.display = on ? 'inline-block' : 'none';
         if (showLabel) showLabel.textContent = on ? 'Fetching…' : 'Show';
-        if (stateSelect) stateSelect.disabled = on;
-        if (districtSelect) districtSelect.disabled = on || !stateSelect.value;
     }
 
+    function searchSelectedLocation() {
+        const state = selectedState();
+        const district = selectedDistrict();
+        if (!state || !district) return;
+        activeState = state;
+        activeDistrict = district;
+        const label = document.getElementById('locationLabel');
+        if (label) label.textContent = district + ' District, ' + state;
+        if (window.history && window.history.replaceState) {
+            window.history.replaceState({}, '', '?state=' + encodeURIComponent(state) + '&district=' + encodeURIComponent(district));
+        }
+        loadWrisInBrowser(state, district);
+    }
+
+    stateSelect.addEventListener('change', function() {
+        if (districtSearch) districtSearch.value = '';
+        fillDistricts('');
+        districtSelect.focus();
+    });
     districtSelect.addEventListener('change', function() {
-        if (stateSelect.value && districtSelect.value) {
-            setFetching(true, 'Fetching groundwater data for ' + districtSelect.value + ', ' + stateSelect.value + '…');
-            locForm.submit();
+        if (selectedState() && selectedDistrict()) {
+            searchSelectedLocation();
         }
     });
-    locForm.addEventListener('submit', function() {
-        if (stateSelect.value && districtSelect.value) {
-            setFetching(true, 'Fetching groundwater data for ' + districtSelect.value + ', ' + stateSelect.value + '…');
+    locForm.addEventListener('submit', function(event) {
+        event.preventDefault();
+        if (selectedState() && selectedDistrict()) {
+            searchSelectedLocation();
         }
     });
+    if (stateSearch) {
+        stateSearch.addEventListener('input', function() {
+            renderStateOptions(stateSearch.value, selectedState());
+            fillDistricts(selectedDistrict(), districtSearch ? districtSearch.value : '');
+        });
+    }
+    if (districtSearch) {
+        districtSearch.addEventListener('input', function() {
+            fillDistricts(selectedDistrict(), districtSearch.value);
+        });
+    }
+    renderStateOptions('', CURRENT_STATE);
     fillDistricts(CURRENT_DISTRICT);
 
     const INITIAL_STATION = "{{ requested_station|default:''|escapejs }}";
@@ -630,22 +686,23 @@
         renderChart(series.filter(function(_, i) { return i % step === 0 || i === series.length - 1; }));
     }
 
-    async function loadWrisInBrowser() {
+    async function loadWrisInBrowser(stateName, districtName) {
+        const state = (stateName || selectedState() || CURRENT_STATE || '').trim();
+        const district = (districtName || selectedDistrict() || CURRENT_DISTRICT || '').trim();
         const note = document.getElementById('fetchNote');
-        const place = (CURRENT_DISTRICT || 'the selected district') + (CURRENT_STATE ? ', ' + CURRENT_STATE : '');
-        if (!HAS_SERVER_DATA) {
-            setFetching(true, 'Fetching groundwater data for ' + place + '…');
-        } else {
-            document.body.classList.add('is-refreshing');
-            document.getElementById('fetchBannerText').textContent = 'Refreshing live readings for ' + place + '…';
+        if (!state || !district) {
+            setFetching(false);
+            return;
         }
-        note.textContent = 'Loading live India-WRIS groundwater levels…';
+        const place = district + ', ' + state;
+        setFetching(true, 'Fetching groundwater data for ' + place + '…');
+        note.textContent = 'Loading live India-WRIS groundwater levels for ' + place + '…';
         const end = new Date();
         const start = new Date(end.getTime() - 180 * 24 * 3600 * 1000);
         const iso = function(d) { return d.toISOString().slice(0, 10); };
         const params = new URLSearchParams({
-            stateName: CURRENT_STATE,
-            districtName: CURRENT_DISTRICT,
+            stateName: state,
+            districtName: district,
             agencyName: 'CGWB',
             startdate: iso(start),
             enddate: iso(end),
@@ -674,29 +731,40 @@
             Object.keys(grouped).forEach(function(name) {
                 grouped[name].sort(function(a, b) { return new Date(a.dataTime) - new Date(b.dataTime); });
             });
+            lastGrouped = grouped;
             const names = Object.keys(grouped).sort();
             if (!names.length) throw new Error('No station readings in this district');
 
             const scroller = document.getElementById('stationScroller');
-            const wanted = names.includes(INITIAL_STATION) ? INITIAL_STATION : names[0];
+            const wanted = names.includes(INITIAL_STATION) && state === CURRENT_STATE && district === CURRENT_DISTRICT
+                ? INITIAL_STATION
+                : names[0];
             scroller.innerHTML = names.map(function(name) {
-                const href = '?state=' + encodeURIComponent(CURRENT_STATE) + '&district=' + encodeURIComponent(CURRENT_DISTRICT) + '&station=' + encodeURIComponent(name);
-                return '<a href="' + href + '" class="station-chip' + (name === wanted ? ' active' : '') + '">' + name + '</a>';
+                return '<button type="button" data-station="' + name.replace(/"/g, '&quot;') + '" class="station-chip' + (name === wanted ? ' active' : '') + '">' + name + '</button>';
             }).join('');
+            scroller.querySelectorAll('[data-station]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    scroller.querySelectorAll('.station-chip').forEach(function(el) { el.classList.remove('active'); });
+                    btn.classList.add('active');
+                    renderStation(btn.getAttribute('data-station'), lastGrouped);
+                });
+            });
             renderStation(wanted, grouped);
-            note.textContent = 'Live from India-WRIS getGroundWaterLevel · CGWB · ' + data.length + ' readings loaded.';
+            note.textContent = 'Live from India-WRIS · ' + place + ' · ' + data.length + ' readings loaded.';
             setFetching(false);
             document.body.classList.remove('is-refreshing');
         } catch (err) {
-            note.textContent = 'Could not load India-WRIS in the browser: ' + err.message;
+            note.textContent = 'Could not load India-WRIS for ' + place + ': ' + err.message;
             setFetching(false);
             document.body.classList.remove('is-refreshing');
             const empty = document.getElementById('compareEmpty');
-            if (empty) empty.textContent = 'Could not load readings. Try another district.';
+            if (empty) empty.textContent = 'Could not load readings for ' + place + '. Try another district.';
+            const scroller = document.getElementById('stationScroller');
+            if (scroller) scroller.innerHTML = '<div class="station-chip">No stations found in ' + place + '</div>';
         }
     }
 
-    loadWrisInBrowser();
+    loadWrisInBrowser(selectedState(), selectedDistrict());
 </script>
 </body>
 </html>

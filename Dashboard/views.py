@@ -117,26 +117,30 @@ def api_stations(request):
 def FarmerDashboard(request):
     state = request.GET.get('state', '').strip()
     district = request.GET.get('district', '').strip()
+    user_picked_location = 'state' in request.GET or 'district' in request.GET
 
-    if not state or not district:
+    locations = {name: list(dists) for name, dists in FARMER_LOCATIONS.items()}
+
+    if not user_picked_location:
         profile = getattr(request.user, 'profile', None)
         if profile and getattr(profile, 'state', None) and getattr(profile, 'district', None):
-            state = state or profile.state
-            district = district or profile.district
+            state = profile.state
+            district = profile.district
         else:
             first_log = DistrictLog.objects.first()
             if first_log:
-                state = state or first_log.state
-                district = district or first_log.district
+                state = first_log.state
+                district = first_log.district
             else:
-                state = state or "Andhra Pradesh"
-                district = district or "Anantapur"
+                state = "Andhra Pradesh"
+                district = "Anantapur"
 
-    locations = {name: list(dists) for name, dists in FARMER_LOCATIONS.items()}
-    if state not in locations:
+    if state and state not in locations:
         locations[state] = [district] if district else []
-    if district and district not in locations[state]:
+    if state and district and district not in locations[state]:
         locations[state] = [district] + locations[state]
+    if user_picked_location and state and not district and locations.get(state):
+        district = locations[state][0]
 
     max_depth = 25.0
     current_level = None
