@@ -14,3 +14,5 @@ dashboard_data_utf8.json
 data.json
 .DS_Store
 *.log
+.vercel
+.env.local

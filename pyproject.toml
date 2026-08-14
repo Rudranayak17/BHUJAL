@@ -1,0 +1,19 @@
+[project]
+name = "bhujal"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "Django==5.2.8",
+    "dj-database-url",
+    "python-dotenv==1.2.1",
+    "whitenoise==6.11.0",
+    "gunicorn==23.0.0",
+    "requests==2.32.5",
+    "pandas==2.3.3",
+    "numpy==2.3.5",
+    "plotly==6.5.0",
+    "psycopg[binary]==3.2.13",
+]
+
+[tool.vercel]
+entrypoint = "DWLR.wsgi:application"

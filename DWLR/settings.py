@@ -16,8 +16,10 @@ from dotenv import load_dotenv
 import dj_database_url
 
 load_dotenv('.env')
+load_dotenv('.env.local')
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+ON_VERCEL = os.getenv("VERCEL") == "1"
 
 
 # Quick-start development settings - unsuitable for production
@@ -42,17 +44,21 @@ ALLOWED_HOSTS = [
 ]
 if "localhost" not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.extend(["localhost", "127.0.0.1"])
+if ON_VERCEL:
+    ALLOWED_HOSTS.extend([".vercel.app", ".now.sh"])
 
 
 def _csrf_trusted_origins():
     origins = [
         "https://bhujal-3x43.onrender.com",
         "https://sih-production-3bc9.up.railway.app",
+        "https://*.vercel.app",
+        "https://*.now.sh",
     ]
     extra = os.getenv("CSRF_TRUSTED_ORIGINS", "")
     origins.extend(item.strip() for item in extra.split(",") if item.strip())
 
-    for key in ("RAILWAY_PUBLIC_DOMAIN", "RAILWAY_STATIC_URL"):
+    for key in ("RAILWAY_PUBLIC_DOMAIN", "RAILWAY_STATIC_URL", "VERCEL_URL", "VERCEL_PROJECT_PRODUCTION_URL"):
         value = os.getenv(key, "").strip().rstrip("/")
         if not value:
             continue
@@ -121,11 +127,19 @@ WSGI_APPLICATION = 'DWLR.wsgi.application'
 
 
 # Database
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{BASE_DIR / 'db.sqlite3'}")
+# Vercel's filesystem is read-only except /tmp, so SQLite must live there
+# unless a hosted DATABASE_URL (Neon/Supabase/Vercel Postgres) is provided.
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    if ON_VERCEL:
+        DATABASE_URL = "sqlite:////tmp/bhujal.sqlite3"
+    else:
+        DATABASE_URL = f"sqlite:///{BASE_DIR / 'db.sqlite3'}"
+
 DATABASES = {
     "default": dj_database_url.parse(
         DATABASE_URL,
-        conn_max_age=600,
+        conn_max_age=0 if ON_VERCEL else 600,
         ssl_require=DATABASE_URL.startswith("postgres") and "localhost" not in DATABASE_URL,
     )
 }
